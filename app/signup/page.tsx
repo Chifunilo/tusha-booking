@@ -12,11 +12,60 @@ export default function SignUpPage() {
     year: ''
   });
 
-  const handleSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    console.log('Form submitted:', formData);
-    // Add your sign-up logic here
-  };
+const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  e.preventDefault();
+  
+  // Basic validation
+  if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.day || !formData.month || !formData.year) {
+    alert('Please fill in all fields');
+    return;
+  }
+
+  try {
+    // Send data to API
+    const response = await fetch('/api/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        day: formData.day,
+        month: formData.month,
+        year: formData.year,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      alert('Account created successfully!');
+      console.log('User ID:', data.userId);
+      
+      // Clear form
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        day: '',
+        month: '',
+        year: ''
+      });
+      
+      // Redirect to login (uncomment when you create login page)
+      // window.location.href = '/login';
+    } else {
+      alert('Error: ' + data.error);
+    }
+  } catch (error) {
+    console.error('Sign up error:', error);
+    alert('Failed to create account. Please try again.');
+  }
+};
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
