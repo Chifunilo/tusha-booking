@@ -17,7 +17,7 @@ export default function LogInPage() {
 
     try {
       const response = await fetch('/api/login', {
-        method: 'POST',  // ✅ Changed to POST
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -30,20 +30,23 @@ export default function LogInPage() {
       const data = await response.json();
 
       if (response.ok) {
-        alert('Log in successful!');
-        console.log('Customer:', data.customer);
+        alert('Login successful!');
         
-        // Store customer data in localStorage
-        localStorage.setItem('customer', JSON.stringify(data.customer));
+        // Store user data
+        localStorage.setItem('user', JSON.stringify(data.user));
         
-        // Redirect to dashboard
-        window.location.href = '/dashboard';
+        // Redirect based on user type
+        if (data.user.user_type === 'business') {
+          window.location.href = '/business-dashboard';
+        } else {
+          window.location.href = '/dashboard';
+        }
       } else {
         alert('Error: ' + data.error);
       }
     } catch (error) {
-      console.error('Log in error:', error);
-      alert('Failed to log in. Please try again.');
+      console.error('Login error:', error);
+      alert('Failed to login. Please try again.');
     }
   };
 
@@ -52,8 +55,9 @@ export default function LogInPage() {
   };
 
   return (
-    <div className="flex min-h-screen h-screen overflow-hidden font-['Poppins']">
-      <div className="hidden lg:flex lg:w-1/2 relative">
+    <div className="flex h-screen overflow-hidden font-['Poppins']">
+      {/* Left Side - Image */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <img
           src="/images/LoginPic.jpg"
           alt="Luxury Hotel"
@@ -62,6 +66,7 @@ export default function LogInPage() {
         <div className="absolute inset-0 bg-black/20"></div>
       </div>
 
+      {/* Right Side - Login Form */}
       <div className="flex items-center justify-center w-full lg:w-1/2 p-8 bg-white">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">
@@ -75,10 +80,9 @@ export default function LogInPage() {
             <div>
               <input
                 type="email"
-                id="email"
                 value={formData.email}
                 onChange={(e) => handleChange('email', e.target.value)}
-                className="w-full px-4 py-3 bg-transparent border-2 border-black-400 rounded-lg outline-none focus:border-blue-500 transition-colors text-gray-900 placeholder-gray-500"
+                className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500"
                 placeholder="Email"
               />
             </div>
@@ -86,10 +90,9 @@ export default function LogInPage() {
             <div>
               <input
                 type="password"
-                id="password"
                 value={formData.password}
                 onChange={(e) => handleChange('password', e.target.value)}
-                className="w-full px-4 py-3 bg-transparent border-2 border-black-400 rounded-lg outline-none focus:border-blue-500 transition-colors text-gray-900 placeholder-gray-500"
+                className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500"
                 placeholder="Password"
               />
             </div>
@@ -103,7 +106,7 @@ export default function LogInPage() {
 
             <p className="text-center text-sm text-gray-600">
               Don't have an account?{' '}
-              <a href="/signup" className="text-blue-600 font-medium hover:underline cursor-pointer">
+              <a href="/signup" className="text-blue-600 font-medium hover:underline">
                 Sign Up
               </a>
             </p>

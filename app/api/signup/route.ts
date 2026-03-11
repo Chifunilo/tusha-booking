@@ -4,41 +4,71 @@ import bcrypt from 'bcryptjs';
 
 export async function POST(request: Request) {
   try {
-    // Get data from the form
-    const { firstName, lastName, email, password, day, month, year } = await request.json();
+    const { 
+      firstName, 
+      lastName, 
+      email, 
+      password, 
+      userType,
+      businessName,
+      businessType 
+    } = await request.json();
 
-    // Combine date of birth
-    const dateOfBirth = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-
-    // Check if customer already exists
-    const existingCustomer = await pool.query(
-      'SELECT * FROM customers WHERE email = $1',
+    // Check if user already exists
+    const existingUser = await pool.query(
+      'SELECT * FROM users WHERE email = $1',
       [email]
     );
 
-    if (existingCustomer.rows.length > 0) {
+    if (existingUser.rows.length > 0) {
       return NextResponse.json(
         { error: 'Email already registered' },
         { status: 400 }
       );
     }
 
-    // Hash the password for security
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert customer into database
-    const result = await pool.query(
-      'INSERT INTO customers (first_name, last_name, email, password, date_of_birth) VALUES ($1, $2, $3, $4, $5) RETURNING customer_id, email, first_name, last_name',
-      [firstName, lastName, email, hashedPassword, dateOfBirth]
+    // Insert user into users table
+    // For business: first_name and last_name will be NULL
+    // For customer: use provided firstName and lastName
+    const userResult = await pool.query(
+      `INSERT INTO users (email, password_hash, user_type, first_name, last_name) 
+       VALUES ($1, $2, $3, $4, $5) 
+       RETURNING user_id, email, user_type`,
+      [
+        email, 
+        hashedPassword, 
+        userType, 
+        userType === 'customer' ? firstName : null,
+        userType === 'customer' ? lastName : null
+      ]
     );
 
-    // Return success response
+    const newUser = userResult.rows[0];
+
+    // If business user, create business record
+    if (userType === 'business') {
+      await pool.query(
+        `INSERT INTO businesses (user_id, business_name, business_type, address_line1, city, country) 
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          newUser.user_id, 
+          businessName, 
+          businessType || 'hotel',  // Default to 'hotel' if not provided
+          'TBD', 
+          'TBD', 
+          'TBD'
+        ]
+      );
+    }
+
     return NextResponse.json({
       message: 'Account created successfully',
-      customerId: result.rows[0].customer_id,
-      email: result.rows[0].email,
-      firstName: result.rows[0].first_name,
-      lastName: result.rows[0].last_name,
+      userId: newUser.user_id,
+      email: newUser.email,
+      userType: newUser.user_type,
     });
 
   } catch (error) {

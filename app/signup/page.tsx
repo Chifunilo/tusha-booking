@@ -1,105 +1,80 @@
 "use client";
+
 import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+
+type UserType = 'customer' | 'business';
 
 export default function SignUpPage() {
+  const [userType, setUserType] = useState<UserType>('customer');
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     password: '',
-    day: '',
-    month: '',
-    year: ''
+    businessName: '',
+    businessType: '',
   });
 
-const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
-  e.preventDefault();
-  
-  // Basic validation
-  if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.day || !formData.month || !formData.year) {
-    alert('Please fill in all fields');
-    return;
-  }
+  const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
 
-  try {
-    // Send data to API
-    const response = await fetch('/api/signup', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        password: formData.password,
-        day: formData.day,
-        month: formData.month,
-        year: formData.year,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      alert('Account created successfully!');
-      console.log('User ID:', data.userId);
-      
-      // Clear form
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        password: '',
-        day: '',
-        month: '',
-        year: ''
-      });
-      
-      // Redirect to login (uncomment when you create login page)
-      // window.location.href = '/login';
+    if (userType === 'customer') {
+      // Customer validation
+      if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
+        alert('Please fill in all required fields');
+        return;
+      }
     } else {
-      alert('Error: ' + data.error);
+      // Business validation
+      if (!formData.businessName || !formData.businessType || !formData.email || !formData.password) {
+        alert('Please fill in all required fields');
+        return;
+      }
     }
-  } catch (error) {
-    console.error('Sign up error:', error);
-    alert('Failed to create account. Please try again.');
-  }
-};
+
+    try {
+      const response = await fetch('/api/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: userType === 'customer' ? formData.firstName : '',
+          lastName: userType === 'customer' ? formData.lastName : '',
+          email: formData.email,
+          password: formData.password,
+          userType: userType,
+          businessName: formData.businessName,
+          businessType: formData.businessType,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert('Account created successfully!');
+        window.location.href = '/login';
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Sign up error:', error);
+      alert('Failed to create account. Please try again.');
+    }
+  };
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Generate days 1-31
-  const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0'));
-  
-  // Generate months 1-12 with names
-  const months = [
-    { value: '01', label: 'January' },
-    { value: '02', label: 'February' },
-    { value: '03', label: 'March' },
-    { value: '04', label: 'April' },
-    { value: '05', label: 'May' },
-    { value: '06', label: 'June' },
-    { value: '07', label: 'July' },
-    { value: '08', label: 'August' },
-    { value: '09', label: 'September' },
-    { value: '10', label: 'October' },
-    { value: '11', label: 'November' },
-    { value: '12', label: 'December' }
-  ];
-  
-  // Generate years (1900 to current year)
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => (currentYear - i).toString());
-
   return (
-    <div className="flex min-h-screen h-screen overflow-hidden font-['Poppins']">
+    <div className="flex h-screen overflow-hidden font-['Poppins']">
       {/* Left Side - Image */}
-      <div className="hidden lg:flex lg:w-1/2 relative">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <img
-          src="/images/signuppagepicture.jpg"
+          src="/images/picture signup.jpg"
           alt="Luxury Hotel"
           className="object-cover object-center w-full h-full"
         />
@@ -107,110 +82,146 @@ const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
       </div>
 
       {/* Right Side - Sign Up Form */}
-      <div className="flex items-center justify-center w-full lg:w-1/2 p-8 bg-white">
+      <div className="flex items-center justify-center w-full lg:w-1/2 p-8 bg-white overflow-y-auto">
         <div className="w-full max-w-md space-y-8">
           {/* Header */}
           <div className="text-center">
             <h1 className="text-4xl font-semibold text-gray-900 mb-2">
               Create Account
             </h1>
-            <p className="text-gray-600">Join us for exclusive hotel deals</p>
+            <p className="text-gray-600">Join us for exclusive deals</p>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b border-gray-300">
+            <button
+              onClick={() => setUserType('customer')}
+              className={`flex-1 pb-3 text-center font-medium transition-colors ${
+                userType === 'customer'
+                  ? 'border-b-2 border-[#FFC300] text-[#FFC300]'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Customer
+            </button>
+            <button
+              onClick={() => setUserType('business')}
+              className={`flex-1 pb-3 text-center font-medium transition-colors ${
+                userType === 'business'
+                  ? 'border-b-2 border-[#FFC300] text-[#FFC300]'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Business
+            </button>
           </div>
 
           {/* Form */}
           <div className="space-y-6">
-            {/* First Name */}
-            <div>
+            {userType === 'customer' ? (
+              /* Customer Fields */
+              <>
+                <div>
+                  <input
+                    type="text"
+                    value={formData.firstName}
+                    onChange={(e) => handleChange('firstName', e.target.value)}
+                    className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500"
+                    placeholder="First Name"
+                  />
+                </div>
 
-              <input
-                type="text"
-                id="firstName"
-                value={formData.firstName}
-                onChange={(e) => handleChange('firstName', e.target.value)}
-                className="w-full px-4 py-3 bg-transparent border-2 border-black-400 rounded-lg outline-none focus:border-blue-500 transition-colors text-gray-900 placeholder-gray-500"
-                placeholder= "First Name"
-              />
-            </div>
+                <div>
+                  <input
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) => handleChange('lastName', e.target.value)}
+                    className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500"
+                    placeholder="Last Name"
+                  />
+                </div>
 
-            {/* Last Name */}
-            <div>
-              <input
-                type="text"
-                id="lastName"
-                value={formData.lastName}
-                onChange={(e) => handleChange('lastName', e.target.value)}
-                className="w-full px-4 py-3 bg-transparent border-2 border-black-400 rounded-lg outline-none focus:border-blue-500 transition-colors text-gray-900 placeholder-gray-500"
-                placeholder="Last Name"
-              />
-            </div>
+                <div>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleChange('email', e.target.value)}
+                    className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500"
+                    placeholder="Email"
+                  />
+                </div>
 
-            {/* Email */}
-            <div>
-              <input
-                type="email"
-                id="email"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                className="w-full px-4 py-3 bg-transparent border-2 border-black-400 rounded-lg outline-none focus:border-blue-500 transition-colors text-gray-900 placeholder-gray-500"
-                placeholder="Email"
-              />
-            </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={(e) => handleChange('password', e.target.value)}
+                    className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500 pr-12"
+                    placeholder="Password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-800"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Business Fields - Business Name, Business Type, Email, Password */
+              <>
+                <div>
+                  <input
+                    type="text"
+                    value={formData.businessName}
+                    onChange={(e) => handleChange('businessName', e.target.value)}
+                    className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500"
+                    placeholder="Business Name"
+                  />
+                </div>
 
-            {/* Password */}
-            <div>
-              <input
-                type="password"
-                id="password"
-                value={formData.password}
-                onChange={(e) => handleChange('password', e.target.value)}
-                className="w-full px-4 py-3 bg-transparent border-2 border-black-400 rounded-lg outline-none focus:border-blue-500 transition-colors text-gray-900 placeholder-gray-500"
-                placeholder="Password"
-              />
-            </div>
+                <div>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleChange('email', e.target.value)}
+                    className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500"
+                    placeholder="Email"
+                  />
+                </div>
 
-            {/* Date of Birth */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date of Birth
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                {/* Day Dropdown */}
-                <select
-                  value={formData.day}
-                  onChange={(e) => handleChange('day', e.target.value)}
-                  className="w-full px-4 py-3 bg-transparent border-2 border-black-400 rounded-lg outline-none focus:border-blue-500 transition-colors text-gray-900"
-                >
-                  <option value="" disabled className="text-gray-500">DD</option>
-                  {days.map(day => (
-                    <option key={day} value={day}>{day}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={(e) => handleChange('password', e.target.value)}
+                    className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500 pr-12"
+                    placeholder="Password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-800"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
 
-                {/* Month Dropdown */}
-                <select
-                  value={formData.month}
-                  onChange={(e) => handleChange('month', e.target.value)}
-                  className="w-full px-4 py-3 bg-transparent border-2 border-black-400 rounded-lg outline-none focus:border-blue-500 transition-colors text-gray-900"
-                >
-                  <option value="" disabled className="text-gray-500">MM</option>
-                  {months.map(month => (
-                    <option key={month.value} value={month.value}>{month.label}</option>
-                  ))}
-                </select>
-
-                {/* Year Dropdown */}
-                <select
-                  value={formData.year}
-                  onChange={(e) => handleChange('year', e.target.value)}
-                  className="w-full px-4 py-3 bg-transparent border-2 border-black-400 rounded-lg outline-none focus:border-blue-500 transition-colors text-gray-900"
-                >
-                  <option value="" disabled className="text-gray-500">YYYY</option>
-                  {years.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+                <div>
+                  <select
+                    value={formData.businessType}
+                    onChange={(e) => handleChange('businessType', e.target.value)}
+                    className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black"
+                  >
+                    <option value="">Select Business Type</option>
+                    <option value="hotel">Hotel</option>
+                    <option value="event_center">Event Center</option>
+                    <option value="both">Both</option>
+                  </select>
+                </div>
+              </>
+            )}
 
             {/* Sign Up Button */}
             <button
@@ -223,9 +234,9 @@ const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
             {/* Sign In Link */}
             <p className="text-center text-sm text-gray-600">
               Already have an account?{' '}
-              <span className="text-blue-600 font-medium hover:underline cursor-pointer">
+              <a href="/login" className="text-blue-600 font-medium hover:underline">
                 Sign In
-              </span>
+              </a>
             </p>
           </div>
         </div>
