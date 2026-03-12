@@ -225,12 +225,57 @@ const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
   );
 };
 
-// Manage Rooms with Add Property button
+// Manage Rooms with Properties and Rooms sections
 const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
   const router = useRouter();
+  const [properties, setProperties] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProperties();
+    fetchRooms();
+  }, [userId]);
+
+  const fetchProperties = async () => {
+    try {
+      const response = await fetch(`/api/properties/user/${userId}`);
+      const data = await response.json();
+      if (response.ok) {
+        setProperties(data.properties || []);
+      }
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+    }
+  };
+
+  const fetchRooms = async () => {
+    try {
+      const response = await fetch(`/api/rooms/user/${userId}`);
+      const data = await response.json();
+      if (response.ok) {
+        setRooms(data.rooms || []);
+      }
+    } catch (error) {
+      console.error('Error fetching rooms:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter rooms based on selected property
+  const filteredRooms = selectedPropertyFilter === 'all' 
+    ? rooms 
+    : rooms.filter(room => room.property_id.toString() === selectedPropertyFilter);
+
+  if (loading) {
+    return <div className="text-center py-8">Loading...</div>;
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header with Add Buttons */}
       <div className="flex justify-between items-center">
         <h2 className="text-4xl font-bold">Add and Edit Listings</h2>
         <div className="flex gap-4">
@@ -240,21 +285,104 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
           >
             Add Property <span className="text-xl">⊕</span>
           </button>
-          <button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-3 rounded-full flex items-center gap-2 transition-colors">
+          <button 
+            onClick={() => router.push('/add-room')}
+            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-3 rounded-full flex items-center gap-2 transition-colors"
+          >
             Add Room <span className="text-xl">⊕</span>
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        <PropertyCard 
-          name="Chilenje Apartments"
-          location="Lusaka, Zambia"
-          rooms={10}
-          amenities={2}
-          price="ZMW3000"
-          image="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop"
-        />
+      {/* Properties Section */}
+      <div>
+        <h3 className="text-3xl font-bold mb-6">Properties</h3>
+        {properties.length === 0 ? (
+          <div className="bg-white rounded-3xl shadow-lg p-8 text-center text-gray-500">
+            No properties added yet. Click "Add Property" to get started!
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-6">
+            {properties.map((property) => (
+              <PropertyCard 
+                key={property.property_id}
+                propertyId={property.property_id}
+                name={property.property_name}
+                location={`${property.city}, ${property.country}`}
+                rooms={property.room_count || 0}
+                amenities={property.amenities?.length || 0}
+                price={`ZMW${property.base_price || '0'}`}
+                image={property.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop'}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Rooms Section */}
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-3xl font-bold">Rooms</h3>
+          
+          {/* Property Filter Dropdown */}
+          {properties.length > 0 && (
+            <select
+              value={selectedPropertyFilter}
+              onChange={(e) => setSelectedPropertyFilter(e.target.value)}
+              className="px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-yellow-400 focus:outline-none"
+            >
+              <option value="all">All Properties</option>
+              {properties.map((property) => (
+                <option key={property.property_id} value={property.property_id}>
+                  {property.property_name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {rooms.length === 0 ? (
+          <div className="bg-white rounded-3xl shadow-lg p-8 text-center text-gray-500">
+            No rooms added yet. Click "Add Room" to get started!
+          </div>
+        ) : (
+          <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-black text-white">
+                <tr>
+                  <th className="text-left py-4 px-6 font-semibold">Room Type</th>
+                  <th className="text-left py-4 px-6 font-semibold">Room ID</th>
+                  <th className="text-left py-4 px-6 font-semibold">Property</th>
+                  <th className="text-left py-4 px-6 font-semibold">Amenities</th>
+                  <th className="text-left py-4 px-6 font-semibold">Price</th>
+                  <th className="text-center py-4 px-6 font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRooms.map((room, index) => (
+                  <tr 
+                    key={room.room_id}
+                    className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}
+                  >
+                    <td className="py-4 px-6">{room.room_type}</td>
+                    <td className="py-4 px-6">RID{room.room_id.toString().padStart(3, '0')}</td>
+                    <td className="py-4 px-6">{room.property_name}</td>
+                    <td className="py-4 px-6">{room.amenities?.length || 0}</td>
+                    <td className="py-4 px-6 font-semibold">ZMW{room.base_price}</td>
+                    <td className="py-4 px-6 text-center">
+                      <button 
+                        onClick={() => router.push(`/edit-room/${room.room_id}`)}
+                        className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-2 rounded-full transition-colors"
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -286,20 +414,35 @@ interface PropertyCardProps {
   amenities: number;
   price: string;
   image: string;
+  propertyId: number;
 }
 
-const PropertyCard: React.FC<PropertyCardProps> = ({ name, location, rooms, amenities, price, image }) => {
+const PropertyCard: React.FC<PropertyCardProps> = ({ 
+  propertyId,
+  name, 
+  location, 
+  rooms, 
+  amenities, 
+  price, 
+  image 
+}) => {
+  const router = useRouter();
+  
   return (
     <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
       <img src={image} alt={name} className="w-full h-56 object-cover" />
       <div className="p-6">
         <h3 className="text-2xl font-bold mb-2">{name}</h3>
         <p className="text-gray-600 mb-4">{location}</p>
+        <p className="text-gray-700 mb-1">Amenities: {amenities}</p>
         <p className="text-gray-700 mb-1">Rooms: {rooms}</p>
-        <p className="text-gray-700 mb-4">Amenities: {amenities}</p>
+        <p className="text-gray-700 mb-4">Property ID: PID{propertyId.toString().padStart(2, '0')}</p>
         <div className="flex justify-between items-center">
           <p className="text-2xl font-bold">{price}</p>
-          <button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-2 rounded-full transition-colors">
+          <button 
+            onClick={() => router.push(`/edit-property/${propertyId}`)}
+            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-2 rounded-full transition-colors"
+          >
             Edit
           </button>
         </div>
