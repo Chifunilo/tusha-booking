@@ -146,9 +146,11 @@ export default function BusinessDashboard() {
 // Dashboard Content with dynamic property count
 const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
   const [propertyCount, setPropertyCount] = useState(0);
+    const [roomCount, setRoomCount] = useState(0);
 
   useEffect(() => {
     fetchPropertyCount();
+    fetchRoomCount();
   }, []);
 
   const fetchPropertyCount = async () => {
@@ -163,12 +165,24 @@ const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
     }
   };
 
+    const fetchRoomCount = async () => {
+    try {
+      const response = await fetch(`/api/rooms/count/${userId}`);
+      const data = await response.json();
+      if (response.ok) {
+        setRoomCount(data.count);
+      }
+    } catch (error) {
+      console.error('Error fetching room count:', error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-3 gap-6">
         <StatCard title="Buildings" value={propertyCount.toString()} icon="🏢" />
-        <StatCard title="Rooms" value="16" icon="🛏️" />
+        <StatCard title="Rooms" value={roomCount.toString()} icon="🛏️" />
         <StatCard title="Events" value="2" icon="⛺" />
       </div>
 

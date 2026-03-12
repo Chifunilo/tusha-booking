@@ -1,7 +1,7 @@
+import CustomerHomepage from "./customer-home/page";
+
 export default function Home() {
   return (
-    <div>
-      <h1>Home Page</h1>
-    </div>
+  <CustomerHomepage />
   );
 }
