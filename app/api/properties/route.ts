@@ -17,6 +17,7 @@ export async function POST(request: Request) {
       amenities,
       phone,
       email,
+      images, 
     } = await request.json();
 
     // Insert property into database
@@ -24,8 +25,8 @@ export async function POST(request: Request) {
       `INSERT INTO properties (
         business_id, property_name, property_type,
         address_line1, address_line2, city, state_province, country, postal_code,
-        description, amenities, phone, email, is_published
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        description, amenities, phone, email, images, is_published
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING property_id, property_name`,
       [
         businessId,
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
         amenities || [],
         phone || null,
         email,
+        images || [],
         true // is_published
       ]
     );

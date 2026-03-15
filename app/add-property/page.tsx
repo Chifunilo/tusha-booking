@@ -123,57 +123,76 @@ export default function AddProperty() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+     e.preventDefault();
 
-    if (!validateForm() || !businessId) {
-      alert('Please fill in all required fields');
-      return;
-    }
+     if (!validateForm() || !businessId) {
+       alert('Please fill in all required fields');
+       return;
+     }
 
-    try {
-      // Convert amenities string to array
-      const amenitiesArray = formData.amenities
-        .split(',')
-        .map(item => item.trim())
-        .filter(item => item.length > 0);
+     try {
+       // Upload images first
+       const uploadedImageUrls: string[] = [];
+       
+       for (const image of formData.images) {
+         const imageFormData = new FormData();
+         imageFormData.append('file', image);
+         
+         const uploadResponse = await fetch('/api/upload', {
+           method: 'POST',
+           body: imageFormData,
+         });
+         
+         const uploadData = await uploadResponse.json();
+         
+         if (uploadResponse.ok) {
+           uploadedImageUrls.push(uploadData.url);
+         }
+       }
 
-      // For now, we'll send JSON without images
-      // Image upload can be added later with a file upload service
-      const response = await fetch('/api/properties', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          businessId: businessId,
-          propertyName: formData.propertyName,
-          propertyType: formData.propertyType,
-          addressLine1: formData.addressLine1,
-          addressLine2: formData.addressLine2,
-          city: formData.city,
-          stateProvince: formData.stateProvince,
-          country: formData.country,
-          postalCode: formData.postalCode,
-          description: formData.description,
-          amenities: amenitiesArray,
-          phone: formData.phoneNumber,
-          email: formData.email,
-        }),
-      });
+       // Convert amenities string to array
+       const amenitiesArray = formData.amenities
+         .split(',')
+         .map(item => item.trim())
+         .filter(item => item.length > 0);
 
-      const result = await response.json();
+       // Save property with uploaded image URLs
+       const response = await fetch('/api/properties', {
+         method: 'POST',
+         headers: {
+           'Content-Type': 'application/json',
+         },
+         body: JSON.stringify({
+           businessId: businessId,
+           propertyName: formData.propertyName,
+           propertyType: formData.propertyType,
+           addressLine1: formData.addressLine1,
+           addressLine2: formData.addressLine2,
+           city: formData.city,
+           stateProvince: formData.stateProvince,
+           country: formData.country,
+           postalCode: formData.postalCode,
+           description: formData.description,
+           amenities: amenitiesArray,
+           phone: formData.phoneNumber,
+           email: formData.email,
+           images: uploadedImageUrls,  // ✅ Add images here
+         }),
+       });
 
-      if (response.ok) {
-        alert('Property added successfully!');
-        router.push('/business-dashboard');
-      } else {
-        alert('Failed to add property: ' + result.error);
-      }
-    } catch (error) {
-      console.error('Error adding property:', error);
-      alert('An error occurred while adding the property');
-    }
-  };
+       const result = await response.json();
+
+       if (response.ok) {
+         alert('Property added successfully!');
+         router.push('/business-dashboard');
+       } else {
+         alert('Failed to add property: ' + result.error);
+       }
+     } catch (error) {
+       console.error('Error adding property:', error);
+       alert('An error occurred while adding the property');
+     }
+   };
 
   const propertyTypes = [
     { value: 'hotel', label: 'Hotel' },

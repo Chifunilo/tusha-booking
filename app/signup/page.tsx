@@ -74,7 +74,7 @@ export default function SignUpPage() {
       {/* Left Side - Image */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <img
-          src="/images/picture signup.jpg"
+          src="/images/LoginPic.jpg"
           alt="Luxury Hotel"
           className="object-cover object-center w-full h-full"
         />

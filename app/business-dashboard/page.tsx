@@ -1,4 +1,6 @@
 "use client";
+import Image from 'next/image';
+import { AddIcon, BedIcon, BuildingIcon } from '@/components/icons';
 
 import React, { useState, useEffect } from 'react';
 import { 
@@ -180,9 +182,9 @@ const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-6">
-        <StatCard title="Buildings" value={propertyCount.toString()} icon="🏢" />
-        <StatCard title="Rooms" value={roomCount.toString()} icon="🛏️" />
+      <div className="grid grid-cols-3 gap-6">  
+        <StatCard title="Buildings" value={propertyCount.toString()} icon={<BuildingIcon size={40} />} />
+        <StatCard   title="Rooms" value={roomCount.toString()} icon={<BedIcon size={40} />} />
         <StatCard title="Events" value="2" icon="⛺" />
       </div>
 
@@ -292,20 +294,23 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
       {/* Header with Add Buttons */}
       <div className="flex justify-between items-center">
         <h2 className="text-4xl font-bold">Add and Edit Listings</h2>
-        <div className="flex gap-4">
-          <button 
-            onClick={() => router.push('/add-property')}
-            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-3 rounded-full flex items-center gap-2 transition-colors"
-          >
-            Add Property <span className="text-xl">⊕</span>
-          </button>
-          <button 
-            onClick={() => router.push('/add-room')}
-            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-3 rounded-full flex items-center gap-2 transition-colors"
-          >
-            Add Room <span className="text-xl">⊕</span>
-          </button>
-        </div>
+     <div className="flex gap-4">
+  <button 
+    onClick={() => router.push('/add-property')}
+    className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-3 rounded-full flex items-center gap-2 transition-colors"
+  >
+    Add Property 
+    <AddIcon size={24} />
+  </button>
+  
+  <button 
+    onClick={() => router.push('/add-room')}
+    className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-3 rounded-full flex items-center gap-2 transition-colors"
+  >
+    Add Room 
+    <AddIcon size={24} />
+  </button>
+</div>
       </div>
 
       {/* Properties Section */}
@@ -406,7 +411,7 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
 interface StatCardProps {
   title: string;
   value: string;
-  icon: string;
+  icon: React.ReactNode; 
 }
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => {
@@ -414,7 +419,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => {
     <div className="bg-white rounded-3xl shadow-lg p-8">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-xl font-semibold text-gray-700">{title}</h3>
-        <span className="text-3xl">{icon}</span>
+        <div>{icon}</div>
       </div>
       <p className="text-5xl font-bold">{value}</p>
     </div>
