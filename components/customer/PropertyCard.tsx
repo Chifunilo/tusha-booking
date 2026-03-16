@@ -51,7 +51,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick }) => {
           )}
           
           {/* Price */}
-          <p className="text-3xl font-bold">ZMW{property.min_price || '0'}</p>
+          <p className="text-2xl font-semibold">ZMW{property.min_price || '0'}</p>
         </div>
       </div>
     </div>

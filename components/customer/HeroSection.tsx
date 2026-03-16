@@ -1,5 +1,6 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { AddIcon, BedIcon, BuildingIcon, DollarIcon, LocationIcon} from '@/components/icons';
 import { MapPin, DollarSign } from 'lucide-react';
 
 interface HeroSectionProps {
@@ -25,9 +26,9 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 
   return (
     <div 
-      className="relative min-h-[60vh] bg-cover bg-center flex flex-col"
+      className="relative min-h-[60vh] bg-cover bg-center flex flex-col rounded-b-10xl"
       style={{
-        backgroundImage: `url('https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1600&h=800&fit=crop')`
+        backgroundImage: `url('/images/LoginPic.jpg')`
       }}
     >
       {/* Overlay */}
@@ -71,7 +72,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
         </nav>
 
         {/* Spacer to push search bar to bottom */}
-        <div className="flex-1"></div>
+        <div className="flex-1 space-y-4"></div>
 
         {/* Search Bar Container */}
         <div className="px-8 pb-12">
@@ -80,7 +81,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
               
               {/* Location Input */}
               <div className="flex-1 flex items-center gap-3 px-6 py-4 border-2 border-yellow-400 rounded-xl bg-white">
-                <MapPin size={28} className="text-gray-700" />
+                    <LocationIcon size={24} />
                 <input
                   type="text"
                   placeholder="Location"
@@ -93,7 +94,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 
               {/* Price Input */}
               <div className="flex-1 flex items-center gap-3 px-6 py-4 border-2 border-yellow-400 rounded-xl bg-white">
-                <DollarSign size={28} className="text-gray-700" />
+                    <DollarIcon size={24} />
                 <input
                   type="number"
                   placeholder="Price"
