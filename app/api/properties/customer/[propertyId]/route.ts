@@ -1,5 +1,5 @@
 // API Route: /api/properties/customer/[propertyId]/route.ts
-// Updated to match marketplace_schema.sql with proper TypeScript types
+// Fixed version - removes UNNEST from aggregate function
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
@@ -74,33 +74,55 @@ export async function GET(
     const property = propertyResult.rows[0];
 
     // Fetch room types with aggregated data (only if property has hotel rooms)
-    let room_types: RoomType[] = [];  // ✅ Added proper type annotation
+    let room_types: RoomType[] = [];
     
     if (property.property_type === 'hotel' || property.property_type === 'both') {
+      // FIXED QUERY - Calculate amenities count differently
       const roomTypesQuery = `
         SELECT 
           room_type,
           MAX(max_occupancy) as max_guests,
-          COUNT(DISTINCT UNNEST(amenities)) as amenities_count,
+          COALESCE(ARRAY_LENGTH(amenities, 1), 0) as amenities_count,
           COUNT(*) FILTER (WHERE is_active = true) as available_count,
           MIN(base_price) as price_per_night,
           ROW_NUMBER() OVER (ORDER BY MIN(base_price)) as room_type_id
         FROM rooms
         WHERE property_id = $1 AND is_active = true
-        GROUP BY room_type
+        GROUP BY room_type, amenities
         ORDER BY MIN(base_price) ASC
       `;
 
       const roomTypesResult = await pool.query(roomTypesQuery, [propertyId]);
 
-      // Transform room types to match expected format
-      room_types = roomTypesResult.rows.map(room => ({
-        room_type_id: Number(room.room_type_id),
-        type_name: String(room.room_type),
-        max_guests: Number(room.max_guests),
-        amenities_count: Number(room.amenities_count),
-        available_count: Number(room.available_count),
-        price_per_night: parseFloat(room.price_per_night),
+      // If multiple rows for same room_type (due to different amenities), merge them
+      const roomTypeMap = new Map<string, RoomType>();
+      
+      roomTypesResult.rows.forEach((room, index) => {
+        const roomType = String(room.room_type);
+        
+        if (roomTypeMap.has(roomType)) {
+          // Merge with existing entry
+          const existing = roomTypeMap.get(roomType)!;
+          existing.available_count += Number(room.available_count);
+          existing.amenities_count = Math.max(existing.amenities_count, Number(room.amenities_count));
+          existing.price_per_night = Math.min(existing.price_per_night, parseFloat(room.price_per_night));
+        } else {
+          // New entry
+          roomTypeMap.set(roomType, {
+            room_type_id: index + 1,
+            type_name: roomType,
+            max_guests: Number(room.max_guests),
+            amenities_count: Number(room.amenities_count),
+            available_count: Number(room.available_count),
+            price_per_night: parseFloat(room.price_per_night),
+          });
+        }
+      });
+
+      // Convert map to array and reassign IDs
+      room_types = Array.from(roomTypeMap.values()).map((room, index) => ({
+        ...room,
+        room_type_id: index + 1,
       }));
     }
 
