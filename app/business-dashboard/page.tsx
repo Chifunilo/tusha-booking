@@ -1,8 +1,8 @@
 "use client";
-import Image from 'next/image';
 import { AddIcon, BedIcon, BuildingIcon } from '@/components/icons';
-
 import React, { useState, useEffect } from 'react';
+import { PropertyCard } from '@/components/business';
+
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -322,16 +322,11 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-6">
-            {properties.map((property) => (
-              <PropertyCard 
+       {properties.map((property) => (
+              <PropertyCard
                 key={property.property_id}
-                propertyId={property.property_id}
-                name={property.property_name}
-                location={`${property.city}, ${property.country}`}
-                rooms={property.room_count || 0}
-                amenities={property.amenities?.length || 0}
-                price={`ZMW${property.base_price || '0'}`}
-                image={property.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop'}
+                property={property}
+                onClick={() => handlePropertyClick(property.property_id)}
               />
             ))}
           </div>
@@ -426,49 +421,49 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => {
   );
 };
 
-interface PropertyCardProps {
-  name: string;
-  location: string;
-  rooms: number;
-  amenities: number;
-  price: string;
-  image: string;
-  propertyId: number;
-}
+// interface PropertyCardProps {
+//   name: string;
+//   location: string;
+//   rooms: number;
+//   amenities: number;
+//   price: string;
+//   image: string;
+//   propertyId: number;
+// }
 
-const PropertyCard: React.FC<PropertyCardProps> = ({ 
-  propertyId,
-  name, 
-  location, 
-  rooms, 
-  amenities, 
-  price, 
-  image 
-}) => {
-  const router = useRouter();
+// const PropertyCard: React.FC<PropertyCardProps> = ({ 
+//   propertyId,
+//   name, 
+//   location, 
+//   rooms, 
+//   amenities, 
+//   price, 
+//   image 
+// }) => {
+//   const router = useRouter();
   
-  return (
-    <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
-      <img src={image} alt={name} className="w-full h-56 object-cover" />
-      <div className="p-6">
-        <h3 className="text-2xl font-bold mb-2">{name}</h3>
-        <p className="text-gray-600 mb-4">{location}</p>
-        <p className="text-gray-700 mb-1">Amenities: {amenities}</p>
-        <p className="text-gray-700 mb-1">Rooms: {rooms}</p>
-        <p className="text-gray-700 mb-4">Property ID: PID{propertyId.toString().padStart(2, '0')}</p>
-        <div className="flex justify-between items-center">
-          <p className="text-2xl font-bold">{price}</p>
-          <button 
-            onClick={() => router.push(`/edit-property/${propertyId}`)}
-            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-2 rounded-full transition-colors"
-          >
-            Edit
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+//   return (
+//     <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
+//       <img src={image} alt={name} className="w-full h-56 object-cover" />
+//       <div className="p-6">
+//         <h3 className="text-2xl font-bold mb-2">{name}</h3>
+//         <p className="text-gray-600 mb-4">{location}</p>
+//         <p className="text-gray-700 mb-1">Amenities: {amenities}</p>
+//         <p className="text-gray-700 mb-1">Rooms: {rooms}</p>
+//         <p className="text-gray-700 mb-4">Property ID: PID{propertyId.toString().padStart(2, '0')}</p>
+//         <div className="flex justify-between items-center">
+//           <p className="text-2xl font-bold">{price}</p>
+//           <button 
+//             onClick={() => router.push(`/edit-property/${propertyId}`)}
+//             className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-2 rounded-full transition-colors"
+//           >
+//             Edit
+//           </button>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
 
 const BookingsContent = () => <div className="bg-white rounded-3xl shadow-lg p-8 text-2xl">Bookings Content</div>;
 const EventsCenterContent = () => <div className="bg-white rounded-3xl shadow-lg p-8 text-2xl">Events Center Content</div>;

@@ -75,9 +75,11 @@ export default function CustomerHomepage() {
     setActiveTab(tab);
   };
 
-  const handlePropertyClick = (propertyId: number) => {
-    router.push(`/property/${propertyId}`);
-  };
+const handlePropertyClick = (propertyId: number) => {
+    console.log('Property ID clicked:', propertyId); // Check browser console
+  console.log('Navigating to:', `/property/${propertyId}`);
+  router.push(`/property/${propertyId}`);   // Using query parameter
+};
 
   return (
     <div className="min-h-screen bg-gray-50">
