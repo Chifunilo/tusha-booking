@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import BookingHeader from '@/components/customer/BookingHeader';
 
-// Sample booking page - you'll expand this with your full form
 export default function BookingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -22,7 +21,8 @@ export default function BookingPage() {
     lastName: '',
     email: '',
     phone: '',
-    bookingFor: 'yourself', // 'yourself' or 'someone_else'
+    countryCode: 'ZM +260',
+    bookingFor: 'yourself',
   });
 
   // Calculate number of nights and total price
@@ -33,7 +33,7 @@ export default function BookingPage() {
     const end = new Date(checkOut);
     const nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     
-    // You'll get the actual price from your API
+    // You'll get the actual price from your API/context
     const pricePerNight = 750; // Placeholder
     const totalPrice = nights * pricePerNight;
     
@@ -42,22 +42,52 @@ export default function BookingPage() {
 
   const { nights, totalPrice } = calculateStay();
 
+  const validateForm = () => {
+    if (!bookingDetails.firstName.trim()) {
+      alert('Please enter first name');
+      return false;
+    }
+    if (!bookingDetails.lastName.trim()) {
+      alert('Please enter last name');
+      return false;
+    }
+    if (!bookingDetails.email.trim() || !bookingDetails.email.includes('@')) {
+      alert('Please enter a valid email');
+      return false;
+    }
+    if (!bookingDetails.phone.trim()) {
+      alert('Please enter phone number');
+      return false;
+    }
+    return true;
+  };
+
   const handleContinue = () => {
-    // Validate form and proceed to payment
-    console.log('Booking details:', bookingDetails);
-    // Navigate to payment page or submit booking
+    if (!validateForm()) return;
+
+    // Navigate to payment page with all booking details
+    const params = new URLSearchParams({
+      propertyId: propertyId || '',
+      roomTypeId: roomTypeId || '',
+      guests: guests || '',
+      checkIn: checkIn || '',
+      checkOut: checkOut || '',
+      firstName: bookingDetails.firstName,
+      lastName: bookingDetails.lastName,
+      email: bookingDetails.email,
+      phone: bookingDetails.phone,
+    });
+
+    router.push(`/payment?${params.toString()}`);
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Booking Header Component */}
       <BookingHeader 
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        userProfileImage="/path-to-user-image.jpg" // Optional: pass user's profile image
       />
 
-      {/* Booking Content */}
       <div className="max-w-7xl mx-auto px-8 py-12">
         <h1 className="text-4xl font-bold mb-8">Booking Details</h1>
 
@@ -164,14 +194,21 @@ export default function BookingPage() {
             <div className="mb-8">
               <label className="block text-lg font-semibold mb-2">Phone Number</label>
               <div className="flex gap-3">
-                <select className="px-4 py-3 border-2 border-gray-300 rounded-xl text-lg focus:border-yellow-400 focus:outline-none">
+                <select 
+                  value={bookingDetails.countryCode}
+                  onChange={(e) => setBookingDetails({...bookingDetails, countryCode: e.target.value})}
+                  className="px-4 py-3 border-2 border-gray-300 rounded-xl text-lg focus:border-yellow-400 focus:outline-none"
+                >
                   <option>ZM +260</option>
                   <option>US +1</option>
                   <option>UK +44</option>
-                  {/* Add more country codes */}
+                  <option>ZA +27</option>
+                  <option>KE +254</option>
                 </select>
                 <input
                   type="tel"
+                  value={bookingDetails.phone}
+                  onChange={(e) => setBookingDetails({...bookingDetails, phone: e.target.value})}
                   className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl text-lg focus:border-yellow-400 focus:outline-none"
                   placeholder="Enter phone number"
                 />
