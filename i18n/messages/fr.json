@@ -1,0 +1,34 @@
+{
+  "common": {
+    "home": "Accueil",
+    "events": "Événements",
+    "popular": "Populaire",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "loading": "Chargement..."
+  },
+  "profile": {
+    "title": "Paramètres",
+    "personalDetails": "Détails personnels",
+    "paymentMethod": "Méthode de paiement",
+    "preferences": "Préférences",
+    "logout": "Se déconnecter",
+    "firstName": "Prénom",
+    "lastName": "Nom de famille",
+    "phone": "Numéro de téléphone",
+    "email": "E-mail",
+    "gender": "Genre",
+    "nationality": "Nationalité",
+    "language": "Langue",
+    "changePhoto": "Changer la photo",
+    "profileUpdated": "Profil mis à jour avec succès!",
+    "comingSoon": "Bientôt disponible",
+    "addPaymentMethod": "Ajouter un moyen de paiement"
+  },
+  "gender": {
+    "male": "Homme",
+    "female": "Femme",
+    "other": "Autre",
+    "preferNotToSay": "Préfère ne pas dire"
+  }
+}

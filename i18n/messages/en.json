@@ -1,0 +1,75 @@
+{
+  "common": {
+    "home": "Home",
+    "events": "Events",
+    "popular": "Popular",
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "search": "Search"
+  },
+  "profile": {
+    "title": "Settings",
+    "personalDetails": "Personal Details",
+    "paymentMethod": "Payment method",
+    "preferences": "Preferences",
+    "logout": "Log Out",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "phone": "Phone Number",
+    "email": "Email",
+    "gender": "Gender",
+    "nationality": "Nationality",
+    "language": "Language",
+    "changePhoto": "Change Photo",
+    "profileUpdated": "Profile updated successfully!",
+    "comingSoon": "Coming Soon",
+    "addPaymentMethod": "Add Payment Method",
+    "uploading": "Uploading...",
+    "saving": "Saving...",
+    "selectGender": "Select gender",
+    "selectNationality": "Select nationality",
+    "languageNote": "Select your preferred language for the interface"
+  },
+  "gender": {
+    "male": "Male",
+    "female": "Female",
+    "other": "Other",
+    "preferNotToSay": "Prefer not to say"
+  },
+  "nationality": {
+    "zambian": "Zambian",
+    "southAfrican": "South African",
+    "kenyan": "Kenyan",
+    "nigerian": "Nigerian",
+    "american": "American",
+    "british": "British",
+    "other": "Other"
+  },
+  "booking": {
+    "bookingDetails": "Booking Details",
+    "checkIn": "Check-In",
+    "checkOut": "Check-Out",
+    "stayInformation": "Stay information",
+    "price": "Price",
+    "continue": "Continue",
+    "days": "Days",
+    "room": "Room",
+    "people": "People"
+  },
+  "payment": {
+    "makePayment": "Make Payment",
+    "cardholderName": "Cardholder's name",
+    "cardNumber": "Card Number",
+    "expirationDate": "Expiration Date",
+    "cvc": "CVC",
+    "completeBooking": "Complete Booking",
+    "processing": "Processing...",
+    "bookingConfirmed": "Booking Confirmed!",
+    "bookingSuccess": "Your booking has been successfully processed",
+    "bookingReference": "Booking Reference",
+    "confirmationSent": "A confirmation email has been sent to",
+    "viewBookings": "View My Bookings",
+    "backToHome": "Back to Home"
+  }
+}
