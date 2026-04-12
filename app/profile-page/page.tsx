@@ -2,72 +2,57 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../context/AuthContext';
 import Image from 'next/image';
-
-// Types
-interface UserProfile {
-  user_id: number;
-  email: string;
-  first_name: string;
-  last_name: string;
-  phone: string;
-  profile_image: string | null;
-  gender: string | null;
-  nationality: string | null;
-}
 
 type Section = 'personal' | 'payment' | 'preferences' | 'logout';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const t = useTranslations('profile');
-  const tCommon = useTranslations('common');
-  const tGender = useTranslations('gender');
+  const { user, isAuthenticated, logout, updateUser } = useAuth();
+  
   const [activeSection, setActiveSection] = useState<Section>('personal');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   
-  const [profile, setProfile] = useState<UserProfile>({
+  const [profile, setProfile] = useState({
     user_id: 0,
     email: '',
     first_name: '',
     last_name: '',
     phone: '',
-    profile_image: null,
-    gender: null,
-    nationality: null,
+    profile_image: null as string | null,
+    gender: null as string | null,
+    nationality: null as string | null,
   });
 
   const [selectedLanguage, setSelectedLanguage] = useState('en');
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      // TODO: Replace with actual user ID from auth context/session
-      const userId = 1; // Placeholder
-      
-      const response = await fetch(`/api/users/profile/${userId}`);
-      const data = await response.json();
-      
-      if (response.ok) {
-        setProfile(data.user);
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    } finally {
+    if (!isAuthenticated) {
+      router.push('/login');
+    } else if (user) {
+      // Load user data from context
+      setProfile({
+        user_id: user.user_id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        phone: user.phone || '',
+        profile_image: user.profile_image || null,
+        gender: null,
+        nationality: null,
+      });
       setLoading(false);
     }
-  };
+  }, [isAuthenticated, user, router]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert('Image size must be less than 5MB');
       return;
@@ -122,7 +107,13 @@ export default function ProfilePage() {
       const data = await response.json();
 
       if (response.ok) {
-        // Show success message
+        // Update user in Auth Context
+        updateUser({
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          profile_image: profile.profile_image || undefined,
+        });
+        
         showSuccessToast('Profile updated successfully!');
       } else {
         alert(data.message || 'Failed to update profile');
@@ -136,7 +127,6 @@ export default function ProfilePage() {
   };
 
   const showSuccessToast = (message: string) => {
-    // Simple toast notification
     const toast = document.createElement('div');
     toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg z-50';
     toast.textContent = message;
@@ -149,8 +139,7 @@ export default function ProfilePage() {
 
   const handleLogout = () => {
     if (confirm('Are you sure you want to log out?')) {
-      // TODO: Clear auth session/token
-      router.push('/login');
+      logout(); // This will redirect to login automatically
     }
   };
 
@@ -162,7 +151,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Render content based on active section
   const renderContent = () => {
     switch (activeSection) {
       case 'personal':
@@ -189,7 +177,6 @@ export default function ProfilePage() {
                   )}
                 </div>
                 
-                {/* Upload overlay */}
                 <label className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                   <div className="text-white text-center">
                     {uploadingImage ? (
@@ -217,7 +204,6 @@ export default function ProfilePage() {
 
             {/* Form Fields */}
             <div className="grid grid-cols-2 gap-6 mb-8">
-              {/* First Name */}
               <div>
                 <label className="block text-lg font-semibold mb-2">First Name</label>
                 <input
@@ -229,7 +215,6 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* Last Name */}
               <div>
                 <label className="block text-lg font-semibold mb-2">Last Name</label>
                 <input
@@ -241,7 +226,6 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* Phone Number */}
               <div>
                 <label className="block text-lg font-semibold mb-2">Phone Number</label>
                 <input
@@ -253,7 +237,6 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* Email (Read-only) */}
               <div>
                 <label className="block text-lg font-semibold mb-2">Email</label>
                 <input
@@ -265,7 +248,6 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* Gender */}
               <div>
                 <label className="block text-lg font-semibold mb-2">Gender</label>
                 <select
@@ -281,7 +263,6 @@ export default function ProfilePage() {
                 </select>
               </div>
 
-              {/* Nationality */}
               <div>
                 <label className="block text-lg font-semibold mb-2">Nationality</label>
                 <select
@@ -327,7 +308,6 @@ export default function ProfilePage() {
           <div>
             <h2 className="text-2xl font-bold mb-8">Preferences</h2>
             
-            {/* Language Selector */}
             <div className="mb-8">
               <label className="block text-lg font-semibold mb-3">Language</label>
               <select
@@ -369,12 +349,11 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-black text-white">
         <div className="max-w-7xl mx-auto px-8 py-6">
           <div 
             className="text-3xl font-bold cursor-pointer"
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/customer-home')}
           >
             Tusha
           </div>
@@ -384,13 +363,11 @@ export default function ProfilePage() {
       <div className="max-w-7xl mx-auto px-8 py-12">
         <div className="grid grid-cols-12 gap-8">
           
-          {/* Sidebar */}
           <div className="col-span-3">
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-6">
               <h2 className="text-2xl font-bold mb-6">Settings</h2>
               
               <nav className="space-y-2">
-                {/* Personal Details */}
                 <button
                   onClick={() => handleSectionClick('personal')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
@@ -405,7 +382,6 @@ export default function ProfilePage() {
                   <span>Personal Details</span>
                 </button>
 
-                {/* Payment Method */}
                 <button
                   onClick={() => handleSectionClick('payment')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
@@ -420,7 +396,6 @@ export default function ProfilePage() {
                   <span>Payment method</span>
                 </button>
 
-                {/* Preferences */}
                 <button
                   onClick={() => handleSectionClick('preferences')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
@@ -435,7 +410,6 @@ export default function ProfilePage() {
                   <span>Preferences</span>
                 </button>
 
-                {/* Log Out */}
                 <button
                   onClick={() => handleSectionClick('logout')}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-red-600 hover:bg-red-50 transition-colors"
@@ -449,12 +423,10 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Main Content */}
           <div className="col-span-9">
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-12">
               {renderContent()}
 
-              {/* Save Button (only show for personal and preferences) */}
               {(activeSection === 'personal' || activeSection === 'preferences') && (
                 <div className="flex justify-end mt-8">
                   <button

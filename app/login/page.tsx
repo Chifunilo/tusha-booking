@@ -1,11 +1,18 @@
 "use client";
+
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../context/AuthContext';
 
 export default function LogInPage() {
+  const router = useRouter();
+  const { login } = useAuth();
+  
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -14,6 +21,8 @@ export default function LogInPage() {
       alert('Please fill in all fields');
       return;
     }
+
+    setLoading(true);
 
     try {
       const response = await fetch('/api/login', {
@@ -30,16 +39,14 @@ export default function LogInPage() {
       const data = await response.json();
 
       if (response.ok) {
-        alert('Login successful!');
-        
-        // Store user data
-        localStorage.setItem('user', JSON.stringify(data.user));
+        // Store user in Auth Context (which also stores in localStorage)
+        login(data.user);
         
         // Redirect based on user type
         if (data.user.user_type === 'business') {
-          window.location.href = '/business-dashboard';
+          router.push('/business-dashboard');
         } else {
-          window.location.href = '/dashboard';
+          router.push('/customer-home'); // Changed from /dashboard to /customer-home
         }
       } else {
         alert('Error: ' + data.error);
@@ -47,6 +54,8 @@ export default function LogInPage() {
     } catch (error) {
       console.error('Login error:', error);
       alert('Failed to login. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,6 +93,7 @@ export default function LogInPage() {
                 onChange={(e) => handleChange('email', e.target.value)}
                 className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500"
                 placeholder="Email"
+                disabled={loading}
               />
             </div>
 
@@ -92,16 +102,23 @@ export default function LogInPage() {
                 type="password"
                 value={formData.password}
                 onChange={(e) => handleChange('password', e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSubmit(e as any)}
                 className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500"
                 placeholder="Password"
+                disabled={loading}
               />
             </div>
 
             <button
               onClick={handleSubmit}
-              className="w-full bg-[#FFC300] text-black py-3 rounded-full font-semibold hover:bg-[#e6b000] transition-colors text-lg"
+              disabled={loading}
+              className={`w-full py-3 rounded-full font-semibold transition-colors text-lg ${
+                loading
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-[#FFC300] text-black hover:bg-[#e6b000]'
+              }`}
             >
-              Log In
+              {loading ? 'Logging in...' : 'Log In'}
             </button>
 
             <p className="text-center text-sm text-gray-600">

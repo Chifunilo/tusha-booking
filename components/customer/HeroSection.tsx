@@ -1,7 +1,10 @@
+"use client";
+
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { AddIcon, BedIcon, BuildingIcon, DollarIcon, LocationIcon} from '@/components/icons';
-import { MapPin, DollarSign } from 'lucide-react';
+import { useAuth } from '@/app/context/AuthContext';
+import { LocationIcon, DollarIcon } from '@/components/icons';
+import Image from 'next/image';
 
 interface HeroSectionProps {
   activeTab: 'home' | 'events' | 'popular';
@@ -15,6 +18,8 @@ const HeroSection: React.FC<HeroSectionProps> = ({
   onSearch 
 }) => {
   const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
+  
   const [searchParams, setSearchParams] = React.useState({
     location: '',
     price: '',
@@ -22,6 +27,14 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 
   const handleSearch = () => {
     onSearch(searchParams.location, searchParams.price);
+  };
+
+  const handleProfileClick = () => {
+    if (isAuthenticated) {
+      router.push('/profile-page');
+    } else {
+      router.push('/login');
+    }
   };
 
   return (
@@ -37,7 +50,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
       {/* Content Container */}
       <div className="relative z-10 flex flex-col h-full">
         
-        {/* Top Navigation - Home, Events, Popular */}
+        {/* Top Navigation - Home, Events, Popular, Profile */}
         <nav className="flex justify-end items-center px-12 py-8 gap-16">
           <button
             onClick={() => onTabChange('home')}
@@ -69,6 +82,37 @@ const HeroSection: React.FC<HeroSectionProps> = ({
           >
             Popular
           </button>
+
+          {/* Profile Icon */}
+          <button
+            onClick={handleProfileClick}
+            className="w-12 h-12 rounded-full border-2 border-white/50 hover:border-yellow-400 transition-all overflow-hidden flex items-center justify-center bg-white/10 backdrop-blur-sm"
+            title={isAuthenticated ? 'View Profile' : 'Login to continue'}
+          >
+            {isAuthenticated && user?.profile_image ? (
+              <Image
+                src={user.profile_image}
+                alt="Profile"
+                width={48}
+                height={48}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <svg 
+                className="w-6 h-6 text-white" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" 
+                />
+              </svg>
+            )}
+          </button>
         </nav>
 
         {/* Spacer to push search bar to bottom */}
@@ -81,7 +125,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
               
               {/* Location Input */}
               <div className="flex-1 flex items-center gap-3 px-6 py-4 border-2 border-yellow-400 rounded-xl bg-white">
-                    <LocationIcon size={24} />
+                <LocationIcon size={24} />
                 <input
                   type="text"
                   placeholder="Location"
@@ -94,7 +138,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 
               {/* Price Input */}
               <div className="flex-1 flex items-center gap-3 px-6 py-4 border-2 border-yellow-400 rounded-xl bg-white">
-                    <DollarIcon size={24} />
+                <DollarIcon size={24} />
                 <input
                   type="number"
                   placeholder="Price"
