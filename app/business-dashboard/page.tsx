@@ -1,4 +1,5 @@
 "use client";
+
 import { AddIcon, BedIcon, BuildingIcon } from '@/components/icons';
 import React, { useState, useEffect } from 'react';
 import { PropertyCard } from '@/components/business';

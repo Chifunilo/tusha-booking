@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useRouter } from 'next/navigation';
-import { PropertyCard, HeroSection } from '@/components/customer';
+
+// Lazy load heavy components
+const HeroSection = lazy(() => import('@/components/customer/HeroSection'));
+const PropertyCard = lazy(() => import('@/components/customer/PropertyCard'));
 
 interface Property {
   property_id: number;
@@ -75,22 +78,26 @@ export default function CustomerHomepage() {
     setActiveTab(tab);
   };
 
-const handlePropertyClick = (propertyId: number) => {
-    console.log('Property ID clicked:', propertyId); // Check browser console
-  console.log('Navigating to:', `/property/${propertyId}`);
-  router.push(`/property/${propertyId}`);   // Using query parameter
-};
+  const handlePropertyClick = (propertyId: number) => {
+    router.push(`/property/${propertyId}`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero Section Component */}
-      <HeroSection 
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-        onSearch={handleSearch}
-      />
+      {/* Lazy loaded Hero Section with fallback */}
+      <Suspense fallback={
+        <div className="min-h-[60vh] bg-gray-900 flex items-center justify-center">
+          <div className="text-white text-2xl">Loading hero section...</div>
+        </div>
+      }>
+        <HeroSection 
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          onSearch={handleSearch}
+        />
+      </Suspense>
 
-      {/* Properties Grid */}
+      {/* Properties Section */}
       <div className="max-w-7xl mx-auto px-8 py-12">
         {activeTab === 'popular' ? (
           <div className="bg-white rounded-2xl shadow-lg p-20 text-center">
@@ -99,7 +106,7 @@ const handlePropertyClick = (propertyId: number) => {
           </div>
         ) : loading ? (
           <div className="bg-white rounded-2xl shadow-lg p-20 text-center">
-            <p className="text-2xl text-gray-500">Loading...</p>
+            <p className="text-2xl text-gray-500">Loading properties...</p>
           </div>
         ) : properties.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-lg p-20 text-center">
@@ -107,15 +114,21 @@ const handlePropertyClick = (propertyId: number) => {
             <p className="text-gray-500 mt-4">Try adjusting your search filters</p>
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-6">
-            {properties.map((property) => (
-              <PropertyCard
-                key={property.property_id}
-                property={property}
-                onClick={() => handlePropertyClick(property.property_id)}
-              />
-            ))}
-          </div>
+          <Suspense fallback={
+            <div className="text-center py-20">
+              <p className="text-xl text-gray-500">Loading properties...</p>
+            </div>
+          }>
+            <div className="grid grid-cols-3 lg:grid-cols-4 gap-6">
+              {properties.map((property) => (
+                <PropertyCard
+                  key={property.property_id}
+                  property={property}
+                  onClick={() => handlePropertyClick(property.property_id)}
+                />
+              ))}
+            </div>
+          </Suspense>
         )}
       </div>
     </div>
