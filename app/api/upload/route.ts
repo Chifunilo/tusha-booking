@@ -5,21 +5,11 @@ cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
-  // Add timeout configuration
   timeout: 60000, // 60 seconds
 });
 
 // Increase the maximum duration for this API route (if using Vercel)
 export const maxDuration = 60; // seconds
-
-// Configure body size limit
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb', // Adjust based on your needs
-    },
-  },
-};
 
 export async function POST(request: Request) {
   try {
@@ -63,10 +53,8 @@ export async function POST(request: Request) {
     const result = await cloudinary.uploader.upload(dataURI, {
       folder: 'tusha-booking/properties',
       resource_type: 'image',
-      // Optimize upload
       quality: 'auto',
       fetch_format: 'auto',
-      // Add timeout for upload
       timeout: 60000,
     });
 

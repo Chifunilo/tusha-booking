@@ -83,11 +83,13 @@ export default function BusinessDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-100 via-yellow-50 to-yellow-100 p-8">
+    <div className="min-h-screen bg-white p-8">
       <div className="flex gap-8 max-w-[1600px] mx-auto">
         
         {/* Sidebar */}
-        <aside className="w-80 bg-white rounded-3xl shadow-2xl p-6 flex flex-col h-fit sticky top-8">
+       <aside className="w-80 bg-white rounded-3xl shadow-xl shadow-black/80 p-6 flex flex-col h-fit sticky top-20">
+          <div className='text-center font-bold text-4xl text-black py-5'>Tusha </div>
+          
           <nav className="space-y-2 flex-1">
             {menuItems.map((item) => (
               <button
@@ -97,7 +99,7 @@ export default function BusinessDashboard() {
                   w-full flex items-center gap-4 px-6 py-4 rounded-xl
                   transition-all duration-200
                   ${activeMenu === item.id 
-                    ? 'bg-yellow-100 text-black font-semibold' 
+                    ? 'bg-black text-white font-semibold' 
                     : 'text-gray-700 hover:bg-gray-50'
                   }
                 `}
@@ -191,7 +193,7 @@ const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
 
       {/* Revenue Section */}
       <div className="grid grid-cols-2 gap-6">
-        <div className="bg-white rounded-3xl shadow-lg p-8">
+        <div className="bg-white rounded-2xl shadow-xl shadow-black/40 p-8">
           <h2 className="text-2xl font-semibold mb-6">Revenue This Month</h2>
           <p className="text-4xl font-bold">ZMW7000</p>
           <div className="mt-6 p-6 border-2 border-yellow-400 rounded-2xl bg-yellow-50">
@@ -200,7 +202,7 @@ const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-lg p-8">
+        <div className="bg-white rounded-2xl shadow-xl shadow-black/40 p-8">
           <div className="grid grid-cols-2 gap-8">
             <div>
               <h3 className="text-xl text-gray-600 mb-4">Check Ins</h3>
@@ -215,7 +217,7 @@ const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
       </div>
 
       {/* Events Table */}
-      <div className="bg-white rounded-3xl shadow-lg p-8">
+      <div className="bg-white rounded-3xl shadow-xl shadow-black/40 p-8">
         <table className="w-full">
           <thead>
             <tr className="border-b-2 border-gray-200">
@@ -412,7 +414,7 @@ interface StatCardProps {
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => {
   return (
-    <div className="bg-white rounded-3xl shadow-lg p-8">
+    <div className="bg-white rounded-2xl shadow-xl shadow-black/40 p-8">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-xl font-semibold text-gray-700">{title}</h3>
         <div>{icon}</div>
@@ -421,50 +423,6 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => {
     </div>
   );
 };
-
-// interface PropertyCardProps {
-//   name: string;
-//   location: string;
-//   rooms: number;
-//   amenities: number;
-//   price: string;
-//   image: string;
-//   propertyId: number;
-// }
-
-// const PropertyCard: React.FC<PropertyCardProps> = ({ 
-//   propertyId,
-//   name, 
-//   location, 
-//   rooms, 
-//   amenities, 
-//   price, 
-//   image 
-// }) => {
-//   const router = useRouter();
-  
-//   return (
-//     <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
-//       <img src={image} alt={name} className="w-full h-56 object-cover" />
-//       <div className="p-6">
-//         <h3 className="text-2xl font-bold mb-2">{name}</h3>
-//         <p className="text-gray-600 mb-4">{location}</p>
-//         <p className="text-gray-700 mb-1">Amenities: {amenities}</p>
-//         <p className="text-gray-700 mb-1">Rooms: {rooms}</p>
-//         <p className="text-gray-700 mb-4">Property ID: PID{propertyId.toString().padStart(2, '0')}</p>
-//         <div className="flex justify-between items-center">
-//           <p className="text-2xl font-bold">{price}</p>
-//           <button 
-//             onClick={() => router.push(`/edit-property/${propertyId}`)}
-//             className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-2 rounded-full transition-colors"
-//           >
-//             Edit
-//           </button>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
 
 const BookingsContent = () => <div className="bg-white rounded-3xl shadow-lg p-8 text-2xl">Bookings Content</div>;
 const EventsCenterContent = () => <div className="bg-white rounded-3xl shadow-lg p-8 text-2xl">Events Center Content</div>;
