@@ -135,7 +135,7 @@ export default function BusinessDashboard() {
 
           {/* Dynamic Content */}
           {activeMenu === 'dashboard' && <DashboardContent userId={user.user_id} />}
-          {activeMenu === 'bookings' && <BookingsContent />}
+          {activeMenu === 'bookings' && <BookingsContent userId={user.user_id} />}
           {activeMenu === 'manage-rooms' && <ManageRoomsContent userId={user.user_id} />}
           {activeMenu === 'events-center' && <EventsCenterContent />}
           {activeMenu === 'calendar' && <CalendarContent />}
@@ -283,6 +283,10 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
     }
   };
 
+  const handlePropertyClick = (propertyId: number) => {
+    router.push(`/property/${propertyId}`);
+  };
+
   // Filter rooms based on selected property
   const filteredRooms = selectedPropertyFilter === 'all' 
     ? rooms 
@@ -424,7 +428,389 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => {
   );
 };
 
-const BookingsContent = () => <div className="bg-white rounded-3xl shadow-lg p-8 text-2xl">Bookings Content</div>;
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Booking {
+  booking_id: number;
+  booking_reference: string;
+  room_id: number;
+  room_number: string;
+  check_in_date: string;
+  check_out_date: string;
+  guest_name: string;
+  guest_email: string;
+  guest_phone: string;
+  num_guests: number;
+  total_price: number;
+  payment_method: string;
+  status: string;
+  payment_status: string;
+  special_requests?: string;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+}
+
+function getDateRange(start: string, end: string): string[] {
+  const days: string[] = [];
+  let cur = start;
+  while (cur < end) {
+    days.push(cur);
+    cur = addDays(cur, 1);
+  }
+  return days;
+}
+
+function toDateInput(dateStr: string): string {
+  return dateStr.split('T')[0];
+}
+
+function formatDateLong(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function getTodayStr(): string {
+  const t = new Date();
+  t.setHours(0, 0, 0, 0);
+  return t.toISOString().split('T')[0];
+}
+
+// ─── Booking Detail Modal ─────────────────────────────────────────────────────
+
+const BookingModal: React.FC<{ booking: Booking; onClose: () => void }> = ({ booking, onClose }) => {
+  const nights = getDateRange(
+    toDateInput(booking.check_in_date),
+    toDateInput(booking.check_out_date)
+  ).length;
+
+  const statusColors =
+    booking.status === 'confirmed'
+      ? 'bg-green-100 text-green-800'
+      : booking.status === 'pending'
+      ? 'bg-yellow-100 text-yellow-800'
+      : 'bg-red-100 text-red-800';
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl p-6 w-80 max-w-[90vw]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">Booking details</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-700 text-2xl leading-none px-1"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Details */}
+        <div className="space-y-3 text-sm">
+          {[
+            { label: 'Reference', value: <span className="font-mono text-xs">{booking.booking_reference}</span> },
+            { label: 'Room', value: booking.room_number },
+            { label: 'Guest', value: booking.guest_name },
+            { label: 'Email', value: <span className="text-xs">{booking.guest_email}</span> },
+            { label: 'Phone', value: booking.guest_phone },
+            { label: 'Check-in', value: formatDateLong(toDateInput(booking.check_in_date)) },
+            { label: 'Check-out', value: formatDateLong(toDateInput(booking.check_out_date)) },
+            { label: 'Duration', value: `${nights} night${nights > 1 ? 's' : ''}` },
+            { label: 'Guests', value: booking.num_guests },
+            { label: 'Total', value: `ZMW ${Number(booking.total_price).toFixed(2)}` },
+            { label: 'Payment', value: booking.payment_method },
+          ].map(({ label, value }) => (
+            <div key={label} className="flex gap-2">
+              <span className="text-gray-500 w-20 shrink-0">{label}</span>
+              <span className="font-medium text-gray-800">{value}</span>
+            </div>
+          ))}
+
+          <div className="flex gap-2 items-center">
+            <span className="text-gray-500 w-20 shrink-0">Status</span>
+            <span className={`px-3 py-0.5 rounded-full text-xs font-medium ${statusColors}`}>
+              {booking.status}
+            </span>
+          </div>
+
+          {booking.special_requests && (
+            <div className="flex gap-2">
+              <span className="text-gray-500 w-20 shrink-0">Notes</span>
+              <span className="text-gray-700 text-xs">{booking.special_requests}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Booking Bar ──────────────────────────────────────────────────────────────
+
+type BarPos = 'single' | 'start' | 'mid' | 'end';
+
+const BookingBar: React.FC<{
+  booking: Booking;
+  position: BarPos;
+  onClick: () => void;
+}> = ({ booking, position, onClick }) => {
+  const radiusClass = {
+    single: 'rounded-full',
+    start:  'rounded-l-full rounded-r',
+    mid:    'rounded-none',
+    end:    'rounded-r-full rounded-l',
+  }[position];
+
+  const paddingClass = {
+    single: 'px-3',
+    start:  'pl-3 pr-1',
+    mid:    'px-1',
+    end:    'pl-1 pr-3',
+  }[position];
+
+  const showLabel = position === 'single' || position === 'start';
+  const firstName = booking.guest_name.split(' ')[0];
+
+  return (
+    <div
+      onClick={onClick}
+      title={booking.guest_name}
+      className={`
+        absolute top-1.5 bottom-1.5 left-0 right-0
+        bg-yellow-400 hover:bg-yellow-500
+        cursor-pointer transition-colors
+        flex items-center overflow-hidden
+        ${radiusClass} ${paddingClass}
+        ${position === 'start' || position === 'single' ? 'left-1' : 'left-0'}
+        ${position === 'end'   || position === 'single' ? 'right-1' : 'right-0'}
+      `}
+    >
+      {showLabel && (
+        <span className="text-xs font-medium text-yellow-900 truncate">{firstName}</span>
+      )}
+    </div>
+  );
+};
+
+// ─── Bookings Calendar ────────────────────────────────────────────────────────
+
+const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
+  const today = getTodayStr();
+  const [fromDate, setFromDate] = useState(today);
+  const [toDate,   setToDate]   = useState(addDays(today, 14));
+  const [appliedFrom, setAppliedFrom] = useState(today);
+  const [appliedTo,   setAppliedTo]   = useState(addDays(today, 14));
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [rooms,    setRooms]    = useState<{ room_id: number; room_number: string }[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [selected, setSelected] = useState<Booking | null>(null);
+
+  useEffect(() => {
+    fetchData();
+  }, [userId]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [roomsRes, bookingsRes] = await Promise.all([
+        fetch(`/api/rooms/user/${userId}`),
+        fetch(`/api/bookings/user/${userId}`),
+      ]);
+      const roomsData    = await roomsRes.json();
+      const bookingsData = await bookingsRes.json();
+      if (roomsRes.ok)    setRooms(roomsData.rooms    || []);
+      if (bookingsRes.ok) setBookings(bookingsData.bookings || []);
+    } catch (err) {
+      console.error('Error fetching bookings data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const days = getDateRange(appliedFrom, appliedTo);
+
+  const handleApply = () => {
+    if (fromDate && toDate && fromDate < toDate) {
+      setAppliedFrom(fromDate);
+      setAppliedTo(toDate);
+    }
+  };
+
+  const handleReset = () => {
+    setFromDate(today);
+    setToDate(addDays(today, 14));
+    setAppliedFrom(today);
+    setAppliedTo(addDays(today, 14));
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-500 text-lg">Loading bookings...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-wrap justify-between items-center gap-4">
+        <h2 className="text-4xl font-bold text-gray-800">Manage Bookings</h2>
+
+        {/* Date filter */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-sm text-gray-500">From</span>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:border-yellow-400 focus:outline-none"
+          />
+          <span className="text-sm text-gray-500">To</span>
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:border-yellow-400 focus:outline-none"
+          />
+          <button
+            onClick={handleApply}
+            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-4 py-1.5 rounded-full text-sm transition-colors"
+          >
+            Apply
+          </button>
+          <button
+            onClick={handleReset}
+            className="border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium px-4 py-1.5 rounded-full text-sm transition-colors"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      {/* Calendar */}
+      <div className="bg-white rounded-3xl shadow-xl shadow-black/20 overflow-hidden">
+        {rooms.length === 0 ? (
+          <div className="p-12 text-center text-gray-400 text-lg">
+            No rooms found. Add rooms to see the booking calendar.
+          </div>
+        ) : (
+          /* Scrollable wrapper — both axes */
+          <div className="overflow-auto max-h-[60vh]">
+            <table className="border-collapse" style={{ minWidth: `${90 + days.length * 52}px` }}>
+              {/* Head */}
+              <thead>
+                <tr>
+                  {/* Sticky room column header */}
+                  <th className="sticky left-0 z-20 bg-gray-50 border-b border-r border-gray-200 text-left px-4 py-3 text-sm font-semibold text-gray-600 w-24">
+                    Room
+                  </th>
+
+                  {/* Date columns */}
+                  {days.map((d) => {
+                    const date = new Date(d + 'T00:00:00');
+                    const dow = ['SUN','MON','TUE','WED','THU','FRI','SAT'][date.getDay()];
+                    const isToday = d === today;
+                    return (
+                      <th
+                        key={d}
+                        className={`
+                          sticky top-0 z-10 border-b border-r border-gray-200
+                          py-2 text-center w-[52px] min-w-[52px]
+                          ${isToday ? 'bg-yellow-50' : 'bg-gray-50'}
+                        `}
+                      >
+                        <div className={`text-[10px] font-medium ${isToday ? 'text-yellow-600' : 'text-gray-400'}`}>
+                          {dow}
+                        </div>
+                        <div className={`text-sm font-semibold ${isToday ? 'text-yellow-600' : 'text-gray-700'}`}>
+                          {date.getDate()}
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+
+              {/* Body */}
+              <tbody>
+                {rooms.map((room) => {
+                  const roomBookings = bookings.filter(
+                    (b) => b.room_id === room.room_id
+                  );
+
+                  return (
+                    <tr key={room.room_id} className="group">
+                      {/* Sticky room name */}
+                      <td className="sticky left-0 z-10 bg-white group-hover:bg-gray-50 border-b border-r border-gray-200 px-4 py-0 h-12 font-semibold text-sm text-gray-700 whitespace-nowrap">
+                        {room.room_number}
+                      </td>
+
+                      {/* Day cells */}
+                      {days.map((d) => {
+                        const isToday = d === today;
+                        const cellBookings = roomBookings.filter((b) => {
+                          const bStart = toDateInput(b.check_in_date);
+                          const bEnd   = toDateInput(b.check_out_date);
+                          return d >= bStart && d < bEnd;
+                        });
+
+                        return (
+                          <td
+                            key={d}
+                            className={`
+                              relative border-b border-r border-gray-100 h-12 w-[52px] min-w-[52px] p-0
+                              ${isToday ? 'bg-yellow-50/40' : 'bg-white group-hover:bg-gray-50/50'}
+                            `}
+                          >
+                            {cellBookings.map((b) => {
+                              const bStart = toDateInput(b.check_in_date);
+                              const bEnd   = toDateInput(b.check_out_date);
+                              const isFirst = d === bStart;
+                              const isLast  = addDays(d, 1) === bEnd;
+                              let pos: BarPos = 'mid';
+                              if (isFirst && isLast) pos = 'single';
+                              else if (isFirst)      pos = 'start';
+                              else if (isLast)       pos = 'end';
+                              return (
+                                <BookingBar
+                                  key={b.booking_id}
+                                  booking={b}
+                                  position={pos}
+                                  onClick={() => setSelected(b)}
+                                />
+                              );
+                            })}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Booking detail modal */}
+      {selected && (
+        <BookingModal booking={selected} onClose={() => setSelected(null)} />
+      )}
+    </div>
+  );
+};
 const EventsCenterContent = () => <div className="bg-white rounded-3xl shadow-lg p-8 text-2xl">Events Center Content</div>;
 const CalendarContent = () => <div className="bg-white rounded-3xl shadow-lg p-8 text-2xl">Calendar Content</div>;
 const CustomersContent = () => <div className="bg-white rounded-3xl shadow-lg p-8 text-2xl">Customers Content</div>;

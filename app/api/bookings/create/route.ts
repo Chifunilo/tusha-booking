@@ -3,16 +3,19 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
+import { jwtVerify } from 'jose';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
+const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
+
 // Generate booking reference (format: BK-YYYY-XXXXXX)
 function generateBookingReference(): string {
   const year = new Date().getFullYear();
-  const randomNum = Math.floor(100000 + Math.random() * 900000); // 6-digit random number
+  const randomNum = Math.floor(100000 + Math.random() * 900000);
   return `BK-${year}-${randomNum}`;
 }
 
@@ -25,12 +28,12 @@ function calculateTotalPrice(
   const start = new Date(checkIn);
   const end = new Date(checkOut);
   const nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-  
+
   const basePrice = pricePerNight * nights;
-  const taxes = basePrice * 0.16; // 16% tax (adjust as needed)
-  const serviceFee = basePrice * 0.05; // 5% service fee (adjust as needed)
+  const taxes = basePrice * 0.16;
+  const serviceFee = basePrice * 0.05;
   const totalPrice = basePrice + taxes + serviceFee;
-  
+
   return { nights, basePrice, taxes, serviceFee, totalPrice };
 }
 
@@ -39,19 +42,40 @@ function getDatesBetween(startDate: string, endDate: string): string[] {
   const dates: string[] = [];
   const start = new Date(startDate);
   const end = new Date(endDate);
-  
-  // Don't include the checkout date (guest leaves that day)
+
   while (start < end) {
     dates.push(start.toISOString().split('T')[0]);
     start.setDate(start.getDate() + 1);
   }
-  
+
   return dates;
 }
 
 export async function POST(request: NextRequest) {
+  // ── 1. Verify JWT from cookie — userId comes from here, NOT the request body
+  const token = request.cookies.get('auth_token')?.value;
+
+  if (!token) {
+    return NextResponse.json(
+      { success: false, message: 'You must be logged in to make a booking' },
+      { status: 401 }
+    );
+  }
+
+  let userId: number;
+  try {
+    const { payload } = await jwtVerify(token, secret);
+    userId = payload.userId as number;
+  } catch {
+    return NextResponse.json(
+      { success: false, message: 'Invalid or expired session. Please log in again.' },
+      { status: 401 }
+    );
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
   const client = await pool.connect();
-  
+
   try {
     const body = await request.json();
     const {
@@ -64,8 +88,8 @@ export async function POST(request: NextRequest) {
       guestEmail,
       guestPhone,
       paymentMethod,
-      userId, // Optional - if user is logged in
       specialRequests,
+      // userId intentionally excluded — it comes from the JWT above
     } = body;
 
     // Validate required fields
@@ -79,7 +103,7 @@ export async function POST(request: NextRequest) {
     // Start transaction
     await client.query('BEGIN');
 
-    // 1. Find an available room of the specified type
+    // 2. Find an available room of the specified type
     const roomQuery = `
       SELECT 
         r.room_id,
@@ -98,7 +122,6 @@ export async function POST(request: NextRequest) {
         )
         AND r.is_active = true
         AND r.room_id NOT IN (
-          -- Exclude rooms already booked for these dates
           SELECT DISTINCT ra.room_id
           FROM room_availability ra
           WHERE ra.status = 'booked'
@@ -110,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     const roomResult = await client.query(roomQuery, [
       propertyId,
-      parseInt(roomTypeId) - 1, // roomTypeId is 1-based, OFFSET is 0-based
+      parseInt(roomTypeId) - 1,
       checkInDate,
       checkOutDate,
     ]);
@@ -125,13 +148,13 @@ export async function POST(request: NextRequest) {
 
     const room = roomResult.rows[0];
 
-    // 2. Calculate pricing
+    // 3. Calculate pricing
     const pricing = calculateTotalPrice(room.base_price, checkInDate, checkOutDate);
 
-    // 3. Generate booking reference
+    // 4. Generate booking reference
     const bookingReference = generateBookingReference();
 
-    // 4. Create the booking
+    // 5. Create the booking
     const bookingQuery = `
       INSERT INTO bookings (
         booking_reference,
@@ -161,7 +184,7 @@ export async function POST(request: NextRequest) {
 
     const bookingResult = await client.query(bookingQuery, [
       bookingReference,
-      userId || null,
+      userId,           // ← from JWT cookie, guaranteed non-null
       propertyId,
       room.room_id,
       checkInDate,
@@ -180,9 +203,9 @@ export async function POST(request: NextRequest) {
 
     const booking = bookingResult.rows[0];
 
-    // 5. Update room availability - mark dates as booked
+    // 6. Update room availability - mark dates as booked
     const dates = getDatesBetween(checkInDate, checkOutDate);
-    
+
     for (const date of dates) {
       await client.query(
         `INSERT INTO room_availability (room_id, date, status, booking_id)
@@ -196,7 +219,7 @@ export async function POST(request: NextRequest) {
     // Commit transaction
     await client.query('COMMIT');
 
-    // 6. Return success response
+    // 7. Return success response
     return NextResponse.json(
       {
         success: true,
@@ -210,10 +233,9 @@ export async function POST(request: NextRequest) {
     );
 
   } catch (error) {
-    // Rollback on error
     await client.query('ROLLBACK');
     console.error('Error creating booking:', error);
-    
+
     return NextResponse.json(
       {
         success: false,

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { SignJWT } from 'jose';
+
+const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
 
 export async function POST(request: Request) {
   try {
@@ -38,22 +41,44 @@ export async function POST(request: Request) {
         'SELECT business_name FROM businesses WHERE user_id = $1',
         [user.user_id]
       );
-      
+
       if (businessResult.rows.length > 0) {
         businessName = businessResult.rows[0].business_name;
       }
     }
 
+    // Sign JWT token
+    const token = await new SignJWT({
+      userId: user.user_id,
+      email: user.email,
+      userType: user.user_type,
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setExpirationTime('7d')
+      .sign(secret);
+
     // Remove password from response
     const { password_hash: _, ...userWithoutPassword } = user;
 
-    return NextResponse.json({
+    // Build response first, then attach cookie before returning
+    const response = NextResponse.json({
       message: 'Login successful',
       user: {
         ...userWithoutPassword,
-        businessName: businessName, // Add business name to user object
+        businessName,
       },
     });
+
+    // Set JWT as HttpOnly cookie (cannot be read by JS — XSS safe)
+    response.cookies.set('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+    });
+
+    return response;
 
   } catch (error) {
     console.error('Login error:', error);

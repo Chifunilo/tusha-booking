@@ -76,7 +76,8 @@ export async function GET(
     // Fetch room types with aggregated data (only if property has hotel rooms)
     let room_types: RoomType[] = [];
     
-    if (property.property_type === 'hotel' || property.property_type === 'both') {
+   const isRoomBased = !['event_center'].includes(property.property_type);
+if (isRoomBased) {
       // FIXED QUERY - Calculate amenities count differently
       const roomTypesQuery = `
         SELECT 

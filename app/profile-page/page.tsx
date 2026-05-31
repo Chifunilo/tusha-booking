@@ -17,37 +17,37 @@ export default function ProfilePage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   
   const [profile, setProfile] = useState({
-    user_id: 0,
-    email: '',
-    first_name: '',
-    last_name: '',
-    phone: '',
-    profile_image: null as string | null,
-    gender: null as string | null,
-    nationality: null as string | null,
-  });
+  user_id: 0,
+  email: '',
+  first_name: '',
+  last_name: '',
+  phone: '',
+  profile_image: '' as string,
+  gender: '' as string,
+  nationality: '' as string,
+});
 
   const [selectedLanguage, setSelectedLanguage] = useState('en');
 
   // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
-    } else if (user) {
-      // Load user data from context
-      setProfile({
-        user_id: user.user_id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        phone: user.phone || '',
-        profile_image: user.profile_image || null,
-        gender: null,
-        nationality: null,
-      });
-      setLoading(false);
-    }
-  }, [isAuthenticated, user, router]);
+useEffect(() => {
+  if (!isAuthenticated) {
+    router.push('/login');
+  } else if (user) {
+    // Load user data from context
+    setProfile({
+      user_id: user.user_id,
+      email: user.email ?? '',
+      first_name: user.first_name ?? '',
+      last_name: user.last_name ?? '',
+      phone: user.phone ?? '',
+      profile_image: user.profile_image ?? '',  
+      gender: user.gender ?? '',                
+      nationality: user.nationality ?? '',      
+    });
+    setLoading(false);
+  }
+}, [isAuthenticated, user, router]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -1,15 +1,17 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { NextResponse } from 'next/server';
 
+// 1. Force secure delivery channels
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true, 
   timeout: 60000, // 60 seconds
 });
 
 // Increase the maximum duration for this API route (if using Vercel)
-export const maxDuration = 60; // seconds
+export const maxDuration = 190; // seconds
 
 export async function POST(request: Request) {
   try {
@@ -49,13 +51,10 @@ export async function POST(request: Request) {
     const base64 = buffer.toString('base64');
     const dataURI = `data:${file.type};base64,${base64}`;
 
-    // Upload to Cloudinary with additional options
+    // 2. Fixed Options payload (Removed raw transformations causing Signature breakages)
     const result = await cloudinary.uploader.upload(dataURI, {
       folder: 'tusha-booking/properties',
       resource_type: 'image',
-      quality: 'auto',
-      fetch_format: 'auto',
-      timeout: 60000,
     });
 
     console.log('Upload successful:', result.secure_url);
