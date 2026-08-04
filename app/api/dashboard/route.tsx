@@ -1,14 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import pool from '@/lib/db';
 
-export async function GET(
-  request: Request,
-  { params }: { params: { userId: string } }
-) {
+export async function GET(request: NextRequest) {
   try {
-    const userId = params.userId;
+    const userId = request.nextUrl.searchParams.get('userId');
 
-    // Fetch business data for this user
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'userId parameter required' },
+        { status: 400 }
+      );
+    }
+
     const result = await pool.query(
       'SELECT business_id, business_name, business_type, business_email, business_phone FROM businesses WHERE user_id = $1',
       [userId]
