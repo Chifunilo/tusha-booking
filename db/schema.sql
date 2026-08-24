@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 9i1bMYFNJmTwda576DaP8MdWDPdrvMpcVNFYTQOcD0yi848PBPazD74tom7FRV7
+\restrict 9Cngs74B4MYexPy2EFEAYS6WBZfOCAtT5gXLyHjJM1oHZGdtox87QTekbBx5NjW
 
 -- Dumped from database version 18.3
 -- Dumped by pg_dump version 18.3
@@ -52,6 +52,54 @@ ALTER FUNCTION public.update_updated_at_column() OWNER TO postgres;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: admin_audit_log; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.admin_audit_log (
+    log_id bigint NOT NULL,
+    admin_id integer NOT NULL,
+    action character varying(60) NOT NULL,
+    entity_type character varying(40) NOT NULL,
+    entity_id integer NOT NULL,
+    before jsonb,
+    after jsonb,
+    reason text,
+    ip_address inet,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+ALTER TABLE public.admin_audit_log OWNER TO postgres;
+
+--
+-- Name: TABLE admin_audit_log; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.admin_audit_log IS 'Append-only record of privileged actions. Never UPDATE or DELETE from this table.';
+
+
+--
+-- Name: admin_audit_log_log_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.admin_audit_log_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.admin_audit_log_log_id_seq OWNER TO postgres;
+
+--
+-- Name: admin_audit_log_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.admin_audit_log_log_id_seq OWNED BY public.admin_audit_log.log_id;
+
 
 --
 -- Name: bookings; Type: TABLE; Schema: public; Owner: postgres
@@ -126,6 +174,57 @@ ALTER SEQUENCE public.bookings_booking_id_seq OWNED BY public.bookings.booking_i
 
 
 --
+-- Name: business_documents; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.business_documents (
+    document_id integer NOT NULL,
+    business_id integer NOT NULL,
+    doc_type character varying(40) NOT NULL,
+    storage_key text NOT NULL,
+    original_name character varying(255),
+    status character varying(20) DEFAULT 'submitted'::character varying NOT NULL,
+    reject_reason text,
+    reviewed_by integer,
+    reviewed_at timestamp with time zone,
+    uploaded_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT business_documents_doc_type_check CHECK (((doc_type)::text = ANY ((ARRAY['pacra_certificate'::character varying, 'zta_licence'::character varying, 'national_id'::character varying, 'proof_of_ownership'::character varying, 'tax_clearance'::character varying, 'other'::character varying])::text[]))),
+    CONSTRAINT business_documents_status_check CHECK (((status)::text = ANY ((ARRAY['submitted'::character varying, 'accepted'::character varying, 'rejected'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.business_documents OWNER TO postgres;
+
+--
+-- Name: TABLE business_documents; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.business_documents IS 'Verification documents. storage_key points at a PRIVATE bucket, never a public URL.';
+
+
+--
+-- Name: business_documents_document_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.business_documents_document_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.business_documents_document_id_seq OWNER TO postgres;
+
+--
+-- Name: business_documents_document_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.business_documents_document_id_seq OWNED BY public.business_documents.document_id;
+
+
+--
 -- Name: businesses; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -150,7 +249,23 @@ CREATE TABLE public.businesses (
     is_active boolean DEFAULT true,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT businesses_business_type_check CHECK (((business_type)::text = ANY ((ARRAY['hotel'::character varying, 'event_center'::character varying, 'both'::character varying])::text[])))
+    status character varying(30) DEFAULT 'pending_verification'::character varying NOT NULL,
+    tier character varying(20) DEFAULT 'unverified'::character varying NOT NULL,
+    commission_rate numeric(5,4) DEFAULT 0.1200 NOT NULL,
+    verified_by integer,
+    verified_at timestamp with time zone,
+    review_note text,
+    tpin character varying(50),
+    is_vat_registered boolean DEFAULT false NOT NULL,
+    agreement_version character varying(20),
+    agreement_accepted_at timestamp with time zone,
+    agreement_accepted_ip inet,
+    onboarding_source character varying(20) DEFAULT 'self_service'::character varying NOT NULL,
+    CONSTRAINT businesses_business_type_check CHECK (((business_type)::text = ANY ((ARRAY['hotel'::character varying, 'event_center'::character varying, 'both'::character varying])::text[]))),
+    CONSTRAINT businesses_commission_rate_check CHECK (((commission_rate >= (0)::numeric) AND (commission_rate <= 0.5))),
+    CONSTRAINT businesses_onboarding_source_check CHECK (((onboarding_source)::text = ANY ((ARRAY['self_service'::character varying, 'admin_created'::character varying])::text[]))),
+    CONSTRAINT businesses_status_check CHECK (((status)::text = ANY ((ARRAY['pending_verification'::character varying, 'needs_info'::character varying, 'active'::character varying, 'suspended'::character varying, 'rejected'::character varying, 'closed'::character varying])::text[]))),
+    CONSTRAINT businesses_tier_check CHECK (((tier)::text = ANY ((ARRAY['unverified'::character varying, 'verified'::character varying, 'trusted'::character varying])::text[])))
 );
 
 
@@ -186,6 +301,50 @@ ALTER SEQUENCE public.businesses_business_id_seq OWNED BY public.businesses.busi
 
 
 --
+-- Name: commission_ledger; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.commission_ledger (
+    ledger_id integer NOT NULL,
+    booking_id integer NOT NULL,
+    business_id integer NOT NULL,
+    booking_total numeric(12,2) NOT NULL,
+    commission_rate numeric(5,4) NOT NULL,
+    commission_due numeric(12,2) NOT NULL,
+    deposit_collected numeric(12,2) DEFAULT 0 NOT NULL,
+    status character varying(20) DEFAULT 'accrued'::character varying NOT NULL,
+    settled_at timestamp with time zone,
+    note text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT commission_ledger_status_check CHECK (((status)::text = ANY ((ARRAY['accrued'::character varying, 'settled'::character varying, 'waived'::character varying, 'refunded'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.commission_ledger OWNER TO postgres;
+
+--
+-- Name: commission_ledger_ledger_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.commission_ledger_ledger_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.commission_ledger_ledger_id_seq OWNER TO postgres;
+
+--
+-- Name: commission_ledger_ledger_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.commission_ledger_ledger_id_seq OWNED BY public.commission_ledger.ledger_id;
+
+
+--
 -- Name: event_spaces; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -207,7 +366,15 @@ CREATE TABLE public.event_spaces (
     full_day_rate numeric(10,2),
     is_active boolean DEFAULT true,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    per_delegate_rate numeric(10,2),
+    half_day_delegate_rate numeric(10,2),
+    min_delegates integer,
+    package_includes text[],
+    booking_mode character varying(20) DEFAULT 'enquiry'::character varying NOT NULL,
+    CONSTRAINT event_spaces_booking_mode_check CHECK (((booking_mode)::text = ANY ((ARRAY['instant'::character varying, 'enquiry'::character varying])::text[]))),
+    CONSTRAINT event_spaces_instant_needs_price CHECK ((((booking_mode)::text <> 'instant'::text) OR (per_delegate_rate IS NOT NULL) OR (full_day_rate IS NOT NULL) OR (half_day_rate IS NOT NULL) OR (hourly_rate IS NOT NULL))),
+    CONSTRAINT event_spaces_min_delegates_check CHECK (((min_delegates IS NULL) OR (min_delegates > 0)))
 );
 
 
@@ -335,6 +502,46 @@ ALTER SEQUENCE public.events_event_id_seq OWNED BY public.events.event_id;
 
 
 --
+-- Name: onboarding_events; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.onboarding_events (
+    event_id bigint NOT NULL,
+    business_id integer NOT NULL,
+    stage character varying(30) NOT NULL,
+    status character varying(20) NOT NULL,
+    note text,
+    actor_id integer,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT onboarding_events_stage_check CHECK (((stage)::text = ANY ((ARRAY['application'::character varying, 'documents'::character varying, 'verification'::character varying, 'agreement'::character varying, 'first_listing'::character varying, 'live'::character varying])::text[]))),
+    CONSTRAINT onboarding_events_status_check CHECK (((status)::text = ANY ((ARRAY['entered'::character varying, 'completed'::character varying, 'blocked'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.onboarding_events OWNER TO postgres;
+
+--
+-- Name: onboarding_events_event_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.onboarding_events_event_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.onboarding_events_event_id_seq OWNER TO postgres;
+
+--
+-- Name: onboarding_events_event_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.onboarding_events_event_id_seq OWNED BY public.onboarding_events.event_id;
+
+
+--
 -- Name: properties; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -359,6 +566,14 @@ CREATE TABLE public.properties (
     is_active boolean DEFAULT true,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    approval_status character varying(20) DEFAULT 'pending'::character varying NOT NULL,
+    approval_note text,
+    reviewed_by integer,
+    reviewed_at timestamp with time zone,
+    zta_licence_number character varying(100),
+    is_vat_registered boolean DEFAULT false NOT NULL,
+    tpin character varying(50),
+    CONSTRAINT properties_approval_status_check CHECK (((approval_status)::text = ANY ((ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying, 'suspended'::character varying])::text[]))),
     CONSTRAINT properties_star_rating_check CHECK (((star_rating >= (0)::numeric) AND (star_rating <= (5)::numeric)))
 );
 
@@ -413,8 +628,10 @@ CREATE TABLE public.reviews (
     business_response text,
     response_date timestamp without time zone,
     is_verified boolean DEFAULT false,
-    is_published boolean DEFAULT true,
+    is_published boolean DEFAULT false,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    reported_at timestamp with time zone,
+    reported_count integer DEFAULT 0 NOT NULL,
     CONSTRAINT reviews_cleanliness_rating_check CHECK (((cleanliness_rating >= 1) AND (cleanliness_rating <= 5))),
     CONSTRAINT reviews_location_rating_check CHECK (((location_rating >= 1) AND (location_rating <= 5))),
     CONSTRAINT reviews_rating_check CHECK (((rating >= 1) AND (rating <= 5))),
@@ -627,7 +844,9 @@ CREATE TABLE public.users (
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     gender character varying(20),
     nationality character varying(20),
-    CONSTRAINT users_user_type_check CHECK (((user_type)::text = ANY ((ARRAY['customer'::character varying, 'business'::character varying])::text[])))
+    suspended_at timestamp with time zone,
+    suspension_reason text,
+    CONSTRAINT users_user_type_check CHECK (((user_type)::text = ANY ((ARRAY['customer'::character varying, 'business'::character varying, 'admin'::character varying])::text[])))
 );
 
 
@@ -663,6 +882,72 @@ ALTER SEQUENCE public.users_user_id_seq OWNED BY public.users.user_id;
 
 
 --
+-- Name: venue_enquiries; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.venue_enquiries (
+    enquiry_id integer NOT NULL,
+    space_id integer NOT NULL,
+    property_id integer NOT NULL,
+    user_id integer,
+    contact_name character varying(255) NOT NULL,
+    contact_email character varying(255) NOT NULL,
+    contact_phone character varying(20) NOT NULL,
+    event_type character varying(100) NOT NULL,
+    preferred_date date NOT NULL,
+    alternate_date date,
+    expected_guests integer NOT NULL,
+    budget_estimate numeric(12,2),
+    message text,
+    status character varying(20) DEFAULT 'new'::character varying NOT NULL,
+    quoted_amount numeric(12,2),
+    business_reply text,
+    replied_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT venue_enquiries_guests_check CHECK ((expected_guests > 0)),
+    CONSTRAINT venue_enquiries_status_check CHECK (((status)::text = ANY ((ARRAY['new'::character varying, 'viewed'::character varying, 'quoted'::character varying, 'won'::character varying, 'lost'::character varying, 'expired'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.venue_enquiries OWNER TO postgres;
+
+--
+-- Name: TABLE venue_enquiries; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.venue_enquiries IS 'Leads for negotiated venue hire (weddings, social functions). Never becomes a row in bookings.';
+
+
+--
+-- Name: venue_enquiries_enquiry_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.venue_enquiries_enquiry_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.venue_enquiries_enquiry_id_seq OWNER TO postgres;
+
+--
+-- Name: venue_enquiries_enquiry_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.venue_enquiries_enquiry_id_seq OWNED BY public.venue_enquiries.enquiry_id;
+
+
+--
+-- Name: admin_audit_log log_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.admin_audit_log ALTER COLUMN log_id SET DEFAULT nextval('public.admin_audit_log_log_id_seq'::regclass);
+
+
+--
 -- Name: bookings booking_id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -670,10 +955,24 @@ ALTER TABLE ONLY public.bookings ALTER COLUMN booking_id SET DEFAULT nextval('pu
 
 
 --
+-- Name: business_documents document_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.business_documents ALTER COLUMN document_id SET DEFAULT nextval('public.business_documents_document_id_seq'::regclass);
+
+
+--
 -- Name: businesses business_id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.businesses ALTER COLUMN business_id SET DEFAULT nextval('public.businesses_business_id_seq'::regclass);
+
+
+--
+-- Name: commission_ledger ledger_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.commission_ledger ALTER COLUMN ledger_id SET DEFAULT nextval('public.commission_ledger_ledger_id_seq'::regclass);
 
 
 --
@@ -695,6 +994,13 @@ ALTER TABLE ONLY public.event_tickets ALTER COLUMN ticket_id SET DEFAULT nextval
 --
 
 ALTER TABLE ONLY public.events ALTER COLUMN event_id SET DEFAULT nextval('public.events_event_id_seq'::regclass);
+
+
+--
+-- Name: onboarding_events event_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.onboarding_events ALTER COLUMN event_id SET DEFAULT nextval('public.onboarding_events_event_id_seq'::regclass);
 
 
 --
@@ -740,6 +1046,21 @@ ALTER TABLE ONLY public.users ALTER COLUMN user_id SET DEFAULT nextval('public.u
 
 
 --
+-- Name: venue_enquiries enquiry_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.venue_enquiries ALTER COLUMN enquiry_id SET DEFAULT nextval('public.venue_enquiries_enquiry_id_seq'::regclass);
+
+
+--
+-- Name: admin_audit_log admin_audit_log_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.admin_audit_log
+    ADD CONSTRAINT admin_audit_log_pkey PRIMARY KEY (log_id);
+
+
+--
 -- Name: bookings bookings_booking_reference_key; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -756,11 +1077,27 @@ ALTER TABLE ONLY public.bookings
 
 
 --
+-- Name: business_documents business_documents_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.business_documents
+    ADD CONSTRAINT business_documents_pkey PRIMARY KEY (document_id);
+
+
+--
 -- Name: businesses businesses_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.businesses
     ADD CONSTRAINT businesses_pkey PRIMARY KEY (business_id);
+
+
+--
+-- Name: commission_ledger commission_ledger_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.commission_ledger
+    ADD CONSTRAINT commission_ledger_pkey PRIMARY KEY (ledger_id);
 
 
 --
@@ -793,6 +1130,14 @@ ALTER TABLE ONLY public.event_tickets
 
 ALTER TABLE ONLY public.events
     ADD CONSTRAINT events_pkey PRIMARY KEY (event_id);
+
+
+--
+-- Name: onboarding_events onboarding_events_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.onboarding_events
+    ADD CONSTRAINT onboarding_events_pkey PRIMARY KEY (event_id);
 
 
 --
@@ -844,11 +1189,34 @@ ALTER TABLE ONLY public.space_availability
 
 
 --
+-- Name: space_availability space_no_overlapping_bookings; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.space_availability
+    ADD CONSTRAINT space_no_overlapping_bookings EXCLUDE USING gist (space_id WITH =, tsrange((date + start_time), (date + end_time), '[)'::text) WITH &&) WHERE (((status)::text = ANY ((ARRAY['booked'::character varying, 'blocked'::character varying])::text[])));
+
+
+--
+-- Name: CONSTRAINT space_no_overlapping_bookings ON space_availability; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT space_no_overlapping_bookings ON public.space_availability IS 'Two bookings for the same space may not overlap in time. Enforced by the database; do not rely on application checks.';
+
+
+--
 -- Name: businesses unique_business_per_user; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.businesses
     ADD CONSTRAINT unique_business_per_user UNIQUE (user_id);
+
+
+--
+-- Name: commission_ledger unique_ledger_per_booking; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.commission_ledger
+    ADD CONSTRAINT unique_ledger_per_booking UNIQUE (booking_id);
 
 
 --
@@ -889,6 +1257,35 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: venue_enquiries venue_enquiries_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.venue_enquiries
+    ADD CONSTRAINT venue_enquiries_pkey PRIMARY KEY (enquiry_id);
+
+
+--
+-- Name: idx_audit_action; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_audit_action ON public.admin_audit_log USING btree (action, created_at DESC);
+
+
+--
+-- Name: idx_audit_admin; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_audit_admin ON public.admin_audit_log USING btree (admin_id, created_at DESC);
+
+
+--
+-- Name: idx_audit_entity; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_audit_entity ON public.admin_audit_log USING btree (entity_type, entity_id, created_at DESC);
 
 
 --
@@ -934,10 +1331,24 @@ CREATE INDEX idx_bookings_user ON public.bookings USING btree (user_id);
 
 
 --
+-- Name: idx_business_documents_business; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_business_documents_business ON public.business_documents USING btree (business_id, status);
+
+
+--
 -- Name: idx_businesses_city; Type: INDEX; Schema: public; Owner: postgres
 --
 
 CREATE INDEX idx_businesses_city ON public.businesses USING btree (city);
+
+
+--
+-- Name: idx_businesses_status; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_businesses_status ON public.businesses USING btree (status);
 
 
 --
@@ -952,6 +1363,20 @@ CREATE INDEX idx_businesses_type ON public.businesses USING btree (business_type
 --
 
 CREATE INDEX idx_businesses_user ON public.businesses USING btree (user_id);
+
+
+--
+-- Name: idx_commission_ledger_business; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_commission_ledger_business ON public.commission_ledger USING btree (business_id, created_at DESC);
+
+
+--
+-- Name: idx_commission_ledger_status; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_commission_ledger_status ON public.commission_ledger USING btree (status);
 
 
 --
@@ -980,6 +1405,20 @@ CREATE INDEX idx_events_date ON public.events USING btree (event_date);
 --
 
 CREATE INDEX idx_events_property ON public.events USING btree (property_id);
+
+
+--
+-- Name: idx_onboarding_business; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_onboarding_business ON public.onboarding_events USING btree (business_id, created_at DESC);
+
+
+--
+-- Name: idx_properties_approval; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_properties_approval ON public.properties USING btree (approval_status);
 
 
 --
@@ -1025,13 +1464,6 @@ CREATE INDEX idx_reviews_user ON public.reviews USING btree (user_id);
 
 
 --
--- Name: idx_room_availability_date; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_room_availability_date ON public.room_availability USING btree (room_id, date);
-
-
---
 -- Name: idx_rooms_price; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -1060,6 +1492,13 @@ CREATE INDEX idx_space_availability_date ON public.space_availability USING btre
 
 
 --
+-- Name: idx_spaces_booking_mode; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_spaces_booking_mode ON public.event_spaces USING btree (booking_mode);
+
+
+--
 -- Name: idx_spaces_property; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -1085,6 +1524,27 @@ CREATE INDEX idx_users_email ON public.users USING btree (email);
 --
 
 CREATE INDEX idx_users_type ON public.users USING btree (user_type);
+
+
+--
+-- Name: idx_venue_enquiries_property; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_venue_enquiries_property ON public.venue_enquiries USING btree (property_id, status, created_at DESC);
+
+
+--
+-- Name: idx_venue_enquiries_space; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_venue_enquiries_space ON public.venue_enquiries USING btree (space_id, preferred_date);
+
+
+--
+-- Name: idx_venue_enquiries_user; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_venue_enquiries_user ON public.venue_enquiries USING btree (user_id);
 
 
 --
@@ -1130,6 +1590,14 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON public.users FOR EACH RO
 
 
 --
+-- Name: admin_audit_log admin_audit_log_admin_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.admin_audit_log
+    ADD CONSTRAINT admin_audit_log_admin_id_fkey FOREIGN KEY (admin_id) REFERENCES public.users(user_id);
+
+
+--
 -- Name: bookings bookings_property_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -1162,11 +1630,51 @@ ALTER TABLE ONLY public.bookings
 
 
 --
+-- Name: business_documents business_documents_business_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.business_documents
+    ADD CONSTRAINT business_documents_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(business_id) ON DELETE CASCADE;
+
+
+--
+-- Name: business_documents business_documents_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.business_documents
+    ADD CONSTRAINT business_documents_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.users(user_id);
+
+
+--
 -- Name: businesses businesses_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.businesses
     ADD CONSTRAINT businesses_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id) ON DELETE CASCADE;
+
+
+--
+-- Name: businesses businesses_verified_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.businesses
+    ADD CONSTRAINT businesses_verified_by_fkey FOREIGN KEY (verified_by) REFERENCES public.users(user_id);
+
+
+--
+-- Name: commission_ledger commission_ledger_booking_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.commission_ledger
+    ADD CONSTRAINT commission_ledger_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES public.bookings(booking_id);
+
+
+--
+-- Name: commission_ledger commission_ledger_business_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.commission_ledger
+    ADD CONSTRAINT commission_ledger_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(business_id);
 
 
 --
@@ -1210,11 +1718,35 @@ ALTER TABLE ONLY public.events
 
 
 --
+-- Name: onboarding_events onboarding_events_actor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.onboarding_events
+    ADD CONSTRAINT onboarding_events_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES public.users(user_id);
+
+
+--
+-- Name: onboarding_events onboarding_events_business_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.onboarding_events
+    ADD CONSTRAINT onboarding_events_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(business_id) ON DELETE CASCADE;
+
+
+--
 -- Name: properties properties_business_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.properties
     ADD CONSTRAINT properties_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(business_id) ON DELETE CASCADE;
+
+
+--
+-- Name: properties properties_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.properties
+    ADD CONSTRAINT properties_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.users(user_id);
 
 
 --
@@ -1282,8 +1814,32 @@ ALTER TABLE ONLY public.space_availability
 
 
 --
+-- Name: venue_enquiries venue_enquiries_property_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.venue_enquiries
+    ADD CONSTRAINT venue_enquiries_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(property_id) ON DELETE CASCADE;
+
+
+--
+-- Name: venue_enquiries venue_enquiries_space_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.venue_enquiries
+    ADD CONSTRAINT venue_enquiries_space_id_fkey FOREIGN KEY (space_id) REFERENCES public.event_spaces(space_id) ON DELETE CASCADE;
+
+
+--
+-- Name: venue_enquiries venue_enquiries_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.venue_enquiries
+    ADD CONSTRAINT venue_enquiries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 9i1bMYFNJmTwda576DaP8MdWDPdrvMpcVNFYTQOcD0yi848PBPazD74tom7FRV7
+\unrestrict 9Cngs74B4MYexPy2EFEAYS6WBZfOCAtT5gXLyHjJM1oHZGdtox87QTekbBx5NjW
 
