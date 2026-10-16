@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import Image from 'next/image';
+import { API_URL } from '@/lib/api';
 
 type Section = 'personal' | 'payment' | 'preferences' | 'logout';
 
@@ -64,8 +65,9 @@ useEffect(() => {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('/api/upload', {
+      const response = await fetch(`${API_URL}/api/upload`, {
         method: 'POST',
+        credentials: 'include',
         body: formData,
       });
 
@@ -88,8 +90,9 @@ useEffect(() => {
     setSaving(true);
 
     try {
-      const response = await fetch('/api/users/update', {
+      const response = await fetch(`${API_URL}/api/users/update`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },

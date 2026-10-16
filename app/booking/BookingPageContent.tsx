@@ -1,14 +1,40 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import BookingHeader from '@/components/customer/BookingHeader';
+import { API_URL } from '@/lib/api';
+
+interface Quote {
+  nights: number;
+  pricePerNight: number;
+  basePrice: number;
+  isVatRegistered: boolean;
+  vat: number;
+  tourismLevy: number;
+  total: number;
+  deposit: number;
+  balanceDueAtCheckIn: number;
+}
+
+// dateStr is a plain "YYYY-MM-DD" calendar date — force UTC so the viewer's
+// own timezone can never shift the displayed day.
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return 'Not selected';
+  return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+  });
+}
+
+function formatCurrency(amount: number): string {
+  return `ZMW ${amount.toLocaleString()}`;
+}
 
 export default function BookingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const propertyId = searchParams.get('propertyId');
-  const roomTypeId = searchParams.get('roomTypeId');
+  const roomType = searchParams.get('roomType');
   const guests = searchParams.get('guests');
   const checkIn = searchParams.get('checkIn');
   const checkOut = searchParams.get('checkOut');
@@ -22,20 +48,30 @@ export default function BookingPage() {
     bookingFor: 'yourself',
   });
 
-  const calculateStay = () => {
-    if (!checkIn || !checkOut) return { nights: 0, totalPrice: 0 };
-    
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    const nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    
-    const pricePerNight = 750;
-    const totalPrice = nights * pricePerNight;
-    
-    return { nights, totalPrice };
-  };
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(true);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
 
-  const { nights, totalPrice } = calculateStay();
+  useEffect(() => {
+    if (!propertyId || !roomType || !checkIn || !checkOut) {
+      setQuoteLoading(false);
+      return;
+    }
+
+    const params = new URLSearchParams({ propertyId, roomType, checkIn, checkOut });
+
+    setQuoteLoading(true);
+    setQuoteError(null);
+
+    fetch(`${API_URL}/api/bookings/quote?${params.toString()}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load price quote');
+        setQuote(data.quote);
+      })
+      .catch((err) => setQuoteError(err.message))
+      .finally(() => setQuoteLoading(false));
+  }, [propertyId, roomType, checkIn, checkOut]);
 
   const validateForm = () => {
     if (!bookingDetails.firstName.trim()) {
@@ -62,7 +98,7 @@ export default function BookingPage() {
 
     const params = new URLSearchParams({
       propertyId: propertyId || '',
-      roomTypeId: roomTypeId || '',
+      roomType: roomType || '',
       guests: guests || '',
       checkIn: checkIn || '',
       checkOut: checkOut || '',
@@ -97,42 +133,71 @@ export default function BookingPage() {
               <div className="flex gap-6">
                 <div className="flex-1">
                   <p className="text-sm text-gray-500 font-medium">Check-In</p>
-                  <p className="text-xl font-semibold mt-1">
-                    {checkIn 
-                      ? new Date(checkIn).toLocaleDateString('en-US', { 
-                          weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
-                        }) 
-                      : 'Not selected'}
-                  </p>
+                  <p className="text-xl font-semibold mt-1">{formatDate(checkIn)}</p>
                 </div>
 
                 <div className="w-px bg-yellow-400 self-stretch my-1"></div>
 
                 <div className="flex-1">
                   <p className="text-sm text-gray-500 font-medium">Check-Out</p>
-                  <p className="text-xl font-semibold mt-1">
-                    {checkOut 
-                      ? new Date(checkOut).toLocaleDateString('en-US', { 
-                          weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
-                        }) 
-                      : 'Not selected'}
-                  </p>
+                  <p className="text-xl font-semibold mt-1">{formatDate(checkOut)}</p>
                 </div>
               </div>
             </div>
 
-            {/* Stay Information Card */}
+            {/* Stay Information + Price Breakdown Card */}
             <div className="bg-white border-2 border-black-200 rounded-2xl overflow-hidden">
               <div className="p-6">
                 <h3 className="text-xl font-bold mb-3">Stay information</h3>
                 <p className="text-lg text-gray-700">
-                  {nights} Days, 1 Executive Room, {guests || '—'} People
+                  {quote ? `${quote.nights} Night${quote.nights === 1 ? '' : 's'}` : '—'}, {roomType || 'Room'}, {guests || '—'} People
                 </p>
               </div>
+
+              {quoteLoading && (
+                <div className="px-6 pb-6 text-gray-500">Loading price…</div>
+              )}
+
+              {quoteError && (
+                <div className="px-6 pb-6 text-red-600">{quoteError}</div>
+              )}
+
+              {quote && (
+                <div className="px-6 pb-6 space-y-2 text-gray-700">
+                  <div className="flex justify-between">
+                    <span>Base price ({quote.nights} night{quote.nights === 1 ? '' : 's'} × {formatCurrency(quote.pricePerNight)})</span>
+                    <span>{formatCurrency(quote.basePrice)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Tourism levy (1.5%)</span>
+                    <span>{formatCurrency(quote.tourismLevy)}</span>
+                  </div>
+                  {quote.isVatRegistered && (
+                    <div className="flex justify-between">
+                      <span>VAT (16%)</span>
+                      <span>{formatCurrency(quote.vat)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="bg-black text-white px-6 py-5 flex justify-between items-center">
-                <span className="text-lg font-medium">Price</span>
-                <span className="text-2xl font-bold">ZMW{totalPrice.toLocaleString()}</span>
+                <span className="text-lg font-medium">Total</span>
+                <span className="text-2xl font-bold">{quote ? formatCurrency(quote.total) : '—'}</span>
               </div>
+
+              {quote && (
+                <div className="px-6 py-4 bg-yellow-50 space-y-1 text-sm">
+                  <div className="flex justify-between font-semibold text-gray-900">
+                    <span>Deposit due now</span>
+                    <span>{formatCurrency(quote.deposit)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Balance due at check-in</span>
+                    <span>{formatCurrency(quote.balanceDueAtCheckIn)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

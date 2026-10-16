@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useRouter } from 'next/navigation';
+import { API_URL } from '@/lib/api';
 
 // Lazy load heavy components
 const HeroSection = lazy(() => import('@/components/customer/HeroSection'));
@@ -30,9 +31,9 @@ export default function CustomerHomepage() {
 
   // Check auth on mount
   useEffect(() => {
-    fetch('/api/me', {
-    credentials: 'include', // ← add this
-  })
+    fetch(`${API_URL}/api/me`, {
+      credentials: 'include',
+    })
       .then(r => r.ok ? setIsLoggedIn(true) : setIsLoggedIn(false))
       .catch(() => setIsLoggedIn(false));
   }, []);
@@ -44,10 +45,10 @@ export default function CustomerHomepage() {
   const fetchProperties = async () => {
     setLoading(true);
     try {
-      let url = '/api/properties/customer';
+      let url = `${API_URL}/api/properties/customer`;
 
       if (activeTab === 'events') {
-        url = '/api/properties/customer?type=events';
+        url = `${API_URL}/api/properties/customer?type=events`;
       }
 
       const response = await fetch(url);
@@ -69,7 +70,7 @@ export default function CustomerHomepage() {
       if (location) params.append('city', location);
       if (price) params.append('maxPrice', price);
 
-      let url = `/api/properties/customer?${params.toString()}`;
+      let url = `${API_URL}/api/properties/customer?${params.toString()}`;
       if (activeTab === 'events') {
         url += '&type=events';
       }

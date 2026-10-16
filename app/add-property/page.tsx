@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { API_URL } from '@/lib/api';
 
 interface PropertyFormData {
   propertyName: string;
@@ -66,7 +67,7 @@ export default function AddProperty() {
 
   const fetchBusinessId = async (userId: number) => {
     try {
-      const response = await fetch(`/api/business/${userId}`);
+      const response = await fetch(`${API_URL}/api/business/${userId}`);
       const data = await response.json();
       if (response.ok) {
         setBusinessId(data.business.business_id);
@@ -138,8 +139,9 @@ export default function AddProperty() {
          const imageFormData = new FormData();
          imageFormData.append('file', image);
          
-         const uploadResponse = await fetch('/api/upload', {
+         const uploadResponse = await fetch(`${API_URL}/api/upload`, {
            method: 'POST',
+           credentials: 'include',
            body: imageFormData,
          });
          
@@ -157,8 +159,9 @@ export default function AddProperty() {
          .filter(item => item.length > 0);
 
        // Save property with uploaded image URLs
-       const response = await fetch('/api/properties', {
+       const response = await fetch(`${API_URL}/api/properties`, {
          method: 'POST',
+         credentials: 'include',
          headers: {
            'Content-Type': 'application/json',
          },

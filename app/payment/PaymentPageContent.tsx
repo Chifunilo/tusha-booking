@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import BookingHeader from '@/components/customer/BookingHeader';
+import { API_URL } from '@/lib/api';
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -10,7 +11,7 @@ export default function PaymentPage() {
   
   // Get booking details from URL params
   const propertyId = searchParams.get('propertyId');
-  const roomTypeId = searchParams.get('roomTypeId');
+  const roomType = searchParams.get('roomType');
   const guests = searchParams.get('guests');
   const checkIn = searchParams.get('checkIn');
   const checkOut = searchParams.get('checkOut');
@@ -105,14 +106,15 @@ export default function PaymentPage() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Create booking in database
-      const response = await fetch('/api/bookings/create', {
+      const response = await fetch(`${API_URL}/api/bookings/create`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           propertyId,
-          roomTypeId,
+          roomType,
           checkInDate: checkIn,
           checkOutDate: checkOut,
           numGuests: guests,
@@ -163,10 +165,6 @@ export default function PaymentPage() {
               <p className="text-sm text-gray-600 mb-2">Booking Reference</p>
               <p className="text-3xl font-bold text-gray-900">{bookingReference}</p>
             </div>
-
-            <p className="text-gray-600 mb-8">
-              A confirmation email has been sent to <strong>{email}</strong>
-            </p>
 
             <div className="flex gap-4 justify-center">
               <button

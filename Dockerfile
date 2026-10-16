@@ -7,6 +7,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
 
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time, so they
+# must be passed as a build arg (not read from .env, which is not copied in)
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 # Copy source and build
 COPY . .
 RUN npm run build

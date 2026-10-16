@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '@/lib/api';
 
 export default function LogInPage() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function LogInPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/login', {
+      const response = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

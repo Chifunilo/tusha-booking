@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { API_URL } from '@/lib/api';
 
 interface RoomFormData {
   propertyId: string;
@@ -69,7 +70,7 @@ export default function AddRoom() {
 
   const fetchProperties = async (userId: number) => {
     try {
-      const response = await fetch(`/api/properties/user/${userId}`);
+      const response = await fetch(`${API_URL}/api/properties/user/${userId}`);
       const data = await response.json();
       if (response.ok) {
         setProperties(data.properties || []);
@@ -137,11 +138,12 @@ export default function AddRoom() {
         .map(item => item.trim())
         .filter(item => item.length > 0);
 
-      const response = await fetch('/api/rooms', {
+      const response = await fetch(`${API_URL}/api/rooms`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           propertyId: parseInt(formData.propertyId),
           roomNumber: formData.roomNumber,

@@ -16,6 +16,7 @@ import {
   LogOut 
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { API_URL } from '@/lib/api';
 
 type MenuItem = 'dashboard' | 'bookings' | 'manage-rooms' | 'events-center' | 'calendar' | 'customers' | 'reports' | 'settings';
 
@@ -160,7 +161,7 @@ const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
 
   const fetchPropertyCount = async () => {
     try {
-      const response = await fetch(`/api/properties/count/${userId}`);
+      const response = await fetch(`${API_URL}/api/properties/count/${userId}`);
       const data = await response.json();
       if (response.ok) {
         setPropertyCount(data.count);
@@ -172,7 +173,7 @@ const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
 
     const fetchRoomCount = async () => {
     try {
-      const response = await fetch(`/api/rooms/count/${userId}`);
+      const response = await fetch(`${API_URL}/api/rooms/count/${userId}`);
       const data = await response.json();
       if (response.ok) {
         setRoomCount(data.count);
@@ -259,7 +260,7 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
 
   const fetchProperties = async () => {
     try {
-      const response = await fetch(`/api/properties/user/${userId}`);
+      const response = await fetch(`${API_URL}/api/properties/user/${userId}`);
       const data = await response.json();
       if (response.ok) {
         setProperties(data.properties || []);
@@ -271,7 +272,7 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
 
   const fetchRooms = async () => {
     try {
-      const response = await fetch(`/api/rooms/user/${userId}`);
+      const response = await fetch(`${API_URL}/api/rooms/user/${userId}`);
       const data = await response.json();
       if (response.ok) {
         setRooms(data.rooms || []);
@@ -624,8 +625,8 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
     setLoading(true);
     try {
       const [roomsRes, bookingsRes] = await Promise.all([
-        fetch(`/api/rooms/user/${userId}`),
-        fetch(`/api/bookings/user/${userId}`),
+        fetch(`${API_URL}/api/rooms/user/${userId}`),
+        fetch(`${API_URL}/api/bookings/user/${userId}`, { credentials: 'include' }),
       ]);
       const roomsData    = await roomsRes.json();
       const bookingsData = await bookingsRes.json();

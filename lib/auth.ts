@@ -10,7 +10,24 @@ export async function signToken(payload: { userId: number; email: string }) {
     .sign(secret);
 }
 
+export interface Session {
+  userId: number;
+  email: string;
+  userType?: string;
+}
+
 export async function verifyToken(token: string) {
   const { payload } = await jwtVerify(token, secret);
-  return payload as { userId: number; email: string };
+  return payload as unknown as Session;
+}
+
+/** Verifies the auth cookie, returning the session or null instead of throwing. */
+export async function getSession(token: string | undefined): Promise<Session | null> {
+  if (!token) return null;
+
+  try {
+    return await verifyToken(token);
+  } catch {
+    return null;
+  }
 }

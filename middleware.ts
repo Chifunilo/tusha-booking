@@ -1,33 +1,48 @@
 // middleware.ts (at project root)
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { getSession } from '@/lib/auth';
 
-const PROTECTED_ROUTES = ['/booking', '/payment', '/profile-page'];
+const PROTECTED_ROUTES = [
+  '/booking', '/payment', '/profile-page', '/bookings',
+  '/business-dashboard', '/add-property', '/add-room',
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const token = request.cookies.get('auth_token')?.value;
+
+  if (pathname.startsWith('/admin')) {
+    const session = await getSession(token);
+
+    // A non-admin (including a logged-out visitor) gets a 404, not a redirect
+    // to login — the admin area shouldn't be distinguishable from a route
+    // that simply doesn't exist.
+    if (!session || session.userType !== 'admin') {
+      return NextResponse.rewrite(new URL('/__admin_not_found__', request.url));
+    }
+
+    return NextResponse.next();
+  }
+
   const isProtected = PROTECTED_ROUTES.some(r => pathname.startsWith(r));
 
   if (!isProtected) return NextResponse.next();
 
-  const token = request.cookies.get('auth_token')?.value;
+  const session = await getSession(token);
 
-  if (!token) {
+  if (!session) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname + request.nextUrl.search);
     return NextResponse.redirect(loginUrl);
   }
 
-  try {
-    await verifyToken(token);
-    return NextResponse.next();
-  } catch {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname + request.nextUrl.search);
-    return NextResponse.redirect(loginUrl);
-  }
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/booking/:path*', '/payment/:path*', '/profile-page/:path*'],
+  matcher: [
+    '/booking/:path*', '/payment/:path*', '/profile-page/:path*', '/bookings/:path*',
+    '/business-dashboard/:path*', '/add-property/:path*', '/add-room/:path*',
+    '/admin/:path*',
+  ],
 };

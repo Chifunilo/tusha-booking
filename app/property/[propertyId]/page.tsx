@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { HeroSection } from "@/components/customer";
+import { API_URL } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,11 +38,14 @@ interface PropertyDetail {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
+// dateStr is a plain "YYYY-MM-DD" calendar date, not an instant — format it
+// by forcing UTC so the viewer's own timezone can never shift the displayed day.
+function formatDate(dateStr: string): string {
+  return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
   });
 }
 
@@ -139,10 +143,10 @@ function BookingFilter({
 }: {
   guests: number;
   setGuests: (n: number) => void;
-  checkIn: Date | null;
-  setCheckIn: (d: Date | null) => void;
-  checkOut: Date | null;
-  setCheckOut: (d: Date | null) => void;
+  checkIn: string | null;
+  setCheckIn: (d: string | null) => void;
+  checkOut: string | null;
+  setCheckOut: (d: string | null) => void;
 }) {
   const dateLabel =
     checkIn && checkOut
@@ -183,7 +187,7 @@ function BookingFilter({
             type="date"
             className="absolute inset-0 opacity-0 cursor-pointer w-full"
             onChange={(e) => {
-              const d = e.target.value ? new Date(e.target.value) : null;
+              const d = e.target.value || null;
               setCheckIn(d);
               if (checkOut && d && d >= checkOut) setCheckOut(null);
             }}
@@ -198,10 +202,9 @@ function BookingFilter({
           <input
             type="date"
             className="text-sm font-medium text-gray-700 bg-transparent border-none outline-none cursor-pointer"
-            min={checkIn.toISOString().split("T")[0]}
+            min={checkIn}
             onChange={(e) => {
-              const d = e.target.value ? new Date(e.target.value) : null;
-              setCheckOut(d);
+              setCheckOut(e.target.value || null);
             }}
           />
         </div>
@@ -288,8 +291,8 @@ export default function PropertyDetail({ params }: { params: Promise<{ propertyI
 
   // Booking filter state
   const [guests, setGuests] = useState(1);
-  const [checkIn, setCheckIn] = useState<Date | null>(null);
-  const [checkOut, setCheckOut] = useState<Date | null>(null);
+  const [checkIn, setCheckIn] = useState<string | null>(null);
+  const [checkOut, setCheckOut] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<"home" | "events" | "popular">("home");
 
@@ -315,7 +318,7 @@ export default function PropertyDetail({ params }: { params: Promise<{ propertyI
     setError(null);
     try {
       console.log('Fetching property:', propertyId);
-      const res = await fetch(`/api/properties/customer/${propertyId}`);
+      const res = await fetch(`${API_URL}/api/properties/customer/${propertyId}`);
       const data = await res.json();
       console.log('API Response:', data);
       
@@ -338,7 +341,7 @@ export default function PropertyDetail({ params }: { params: Promise<{ propertyI
       return;
     }
     router.push(
-      `/booking?propertyId=${propertyId}&roomTypeId=${room.room_type_id}&guests=${guests}&checkIn=${checkIn.toISOString()}&checkOut=${checkOut.toISOString()}`
+      `/booking?propertyId=${propertyId}&roomType=${encodeURIComponent(room.type_name)}&guests=${guests}&checkIn=${checkIn}&checkOut=${checkOut}`
     );
   };
 

@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Tusha Booking — a [Next.js](https://nextjs.org) hotel/event booking frontend. This app has no database or server secrets of its own — it talks to [tusha-booking-backend](../tusha-booking-backend) (Express + Prisma) for everything: auth, data, and Cloudinary uploads.
 
-## Getting Started
+## Running with Docker (recommended)
 
-First, run the development server:
+1. Start the backend first — see its README. It needs to be reachable before this app can do anything useful.
+2. Copy the env file and fill in `JWT_SECRET` (it must be the **exact same value** as the backend's `JWT_SECRET` — this app verifies auth cookies locally in `middleware.ts` without calling the backend):
+   ```bash
+   cp .env.example .env
+   ```
+3. Start the app:
+   ```bash
+   docker compose up --build
+   ```
+4. Open [http://localhost:3000](http://localhost:3000).
+
+`NEXT_PUBLIC_API_URL` (defaults to `http://localhost:4000`) is baked into the client bundle at build time via a Docker build arg — see `docker-compose.yml` / `Dockerfile` if you need to point at a different backend URL.
+
+## Running locally without Docker
 
 ```bash
+cp .env.example .env   # JWT_SECRET must match the backend's exactly
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Auth model
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Login/signup happen on the backend, which sets an HttpOnly `auth_token` cookie. This app's own `middleware.ts` verifies that cookie locally (no network call) to gate protected pages (`/booking`, `/payment`, `/profile-page`), which only works because both apps share the same `JWT_SECRET`. All other data fetching goes to the backend directly via `fetch(`${NEXT_PUBLIC_API_URL}/api/...`, { credentials: 'include' })` — see `lib/api.ts`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This relies on the cookie being a host-only cookie (no `Domain` set) shared between `localhost:3000` and `localhost:4000` in dev. In production, if frontend and backend end up on different domains (not just different ports), see the backend README's note on cookie domain configuration.
+
+## Environment variables
+
+See `.env.example` for the full list.
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js Documentation](https://nextjs.org/docs)
+- [tusha-booking-backend](../tusha-booking-backend) — the API this app depends on

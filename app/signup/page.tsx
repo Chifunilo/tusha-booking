@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import { API_URL } from '@/lib/api';
 
 type UserType = 'customer' | 'business';
 
@@ -15,10 +16,18 @@ export default function SignUpPage() {
     password: '',
     businessName: '',
     businessType: '',
+    addressLine1: '',
+    city: '',
+    country: '',
   });
 
   const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
+
+    if (formData.password.length < 8) {
+      alert('Password must be at least 8 characters');
+      return;
+    }
 
     if (userType === 'customer') {
       // Customer validation
@@ -28,15 +37,17 @@ export default function SignUpPage() {
       }
     } else {
       // Business validation
-      if (!formData.businessName || !formData.businessType || !formData.email || !formData.password) {
+      if (!formData.businessName || !formData.businessType || !formData.email || !formData.password
+        || !formData.addressLine1 || !formData.city || !formData.country) {
         alert('Please fill in all required fields');
         return;
       }
     }
 
     try {
-      const response = await fetch('/api/signup', {
+      const response = await fetch(`${API_URL}/api/signup`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -48,6 +59,9 @@ export default function SignUpPage() {
           userType: userType,
           businessName: formData.businessName,
           businessType: formData.businessType,
+          addressLine1: userType === 'business' ? formData.addressLine1 : undefined,
+          city: userType === 'business' ? formData.city : undefined,
+          country: userType === 'business' ? formData.country : undefined,
         }),
       });
 
@@ -219,6 +233,36 @@ export default function SignUpPage() {
                     <option value="event_center">Event Center</option>
                     <option value="both">Both</option>
                   </select>
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    value={formData.addressLine1}
+                    onChange={(e) => handleChange('addressLine1', e.target.value)}
+                    className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500"
+                    placeholder="Address"
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    value={formData.city}
+                    onChange={(e) => handleChange('city', e.target.value)}
+                    className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500"
+                    placeholder="City"
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    value={formData.country}
+                    onChange={(e) => handleChange('country', e.target.value)}
+                    className="w-full px-4 py-3 bg-transparent border-2 border-gray-800 rounded-lg outline-none focus:border-blue-500 transition-colors text-black placeholder:text-gray-500"
+                    placeholder="Country"
+                  />
                 </div>
               </>
             )}
