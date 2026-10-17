@@ -17,7 +17,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick }) => {
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-3xl shadow-lg overflow-hidden cursor-pointer hover:shadow-2xl transition-all transform hover:-translate-y-1"
+      className="bg-white rounded-3xl shadow-lg ring-1 ring-black/5 overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-2xl hover:-translate-y-1"
     >
       {/* Property Image - Half the card height */}
       <div className="relative h-60">
@@ -29,30 +29,20 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick }) => {
       </div>
 
       {/* Property Details - Other half */}
-      <div className="p-6 h-48 flex flex-col justify-between">
-        {/* Top Section - Name and Location */}
-        <div>
-          <h3 className="text-xl font-bold mb-1">{property.property_name}</h3>
-          <p className="text-gray-600 text-sm">{property.city}, {property.country}</p>
-          <p className="text-gray-700 font-semibold text-sm px-2 py-1">
-            {property.amenities.join(', ')}
-          </p>
-          <p className="text-gray-700 font-semibold text-sm px-2 py-1 ">
-               {property.property_type}
-            </p>
-      
+      <div className="p-6 flex flex-col gap-1">
+        <h3 className="text-lg font-semibold tracking-tight">{property.property_name}</h3>
+        <p className="text-gray-500 text-sm">{property.city}, {property.country}</p>
+        <p className="text-gray-700 text-sm">{property.amenities.join(', ')}</p>
+        <p className="text-gray-500 text-sm capitalize">{property.property_type}</p>
+      </div>
 
-        </div>
-      
-       
-      </div >
-      <div className='flex p-6'><button 
-            // onClick={() => router.push(`/edit-property/${propertyId}`)}
-            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-2 rounded-full transition-colors"
-          >
-            Edit
-          </button></div>
-       
+      <div className="flex px-6 pb-6">
+        <button
+          className="inline-flex items-center rounded-full bg-yellow-400 px-8 py-2 text-sm font-semibold text-black shadow-[inset_0_2px_0_0_rgba(255,255,255,0.7),inset_0_-1px_0_0_rgba(0,0,0,0.15)] transition-[background-color,transform] duration-200 ease-out hover:bg-yellow-500 active:scale-[0.97]"
+        >
+          Edit
+        </button>
+      </div>
     </div>
   );
 };

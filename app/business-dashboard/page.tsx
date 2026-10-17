@@ -1,22 +1,44 @@
 "use client";
 
 import { AddIcon, BedIcon, BuildingIcon } from '@/components/icons';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PropertyCard } from '@/components/business';
 
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  Bed, 
-  Tent, 
-  CalendarDays, 
-  Users, 
-  BarChart3, 
-  Settings, 
-  LogOut 
+import {
+  LayoutDashboard,
+  Calendar,
+  Bed,
+  Tent,
+  CalendarDays,
+  Users,
+  BarChart3,
+  Settings,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search,
+  ChevronDown,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { API_URL } from '@/lib/api';
+import { motion, type Variants } from 'motion/react';
+
+const fadeInVariants: Variants = {
+  hidden: { opacity: 0, y: 14, filter: 'blur(6px)' },
+  visible: {
+    opacity: 1,
+    y: 0,
+    filter: 'blur(0px)',
+    transition: { type: 'spring', duration: 0.6, bounce: 0 },
+  },
+};
+
+const staggerContainerVariants: Variants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.08, delayChildren: 0.05 },
+  },
+};
 
 type MenuItem = 'dashboard' | 'bookings' | 'manage-rooms' | 'events-center' | 'calendar' | 'customers' | 'reports' | 'settings';
 
@@ -24,6 +46,11 @@ interface MenuItemConfig {
   id: MenuItem;
   label: string;
   icon: React.ReactNode;
+}
+
+interface MenuGroup {
+  label: string;
+  items: MenuItemConfig[];
 }
 
 interface User {
@@ -35,22 +62,56 @@ interface User {
   businessName?: string;
 }
 
+const menuGroups: MenuGroup[] = [
+  {
+    label: 'Overview',
+    items: [{ id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> }],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { id: 'bookings', label: 'Bookings', icon: <Calendar size={20} /> },
+      { id: 'manage-rooms', label: 'Manage Rooms', icon: <Bed size={20} /> },
+      { id: 'events-center', label: 'Events Center', icon: <Tent size={20} /> },
+      { id: 'calendar', label: 'Calendar', icon: <CalendarDays size={20} /> },
+    ],
+  },
+  {
+    label: 'Insights',
+    items: [
+      { id: 'customers', label: 'Customers', icon: <Users size={20} /> },
+      { id: 'reports', label: 'Reports', icon: <BarChart3 size={20} /> },
+    ],
+  },
+  {
+    label: 'Admin',
+    items: [{ id: 'settings', label: 'Settings', icon: <Settings size={20} /> }],
+  },
+];
+
+const allMenuItems = menuGroups.flatMap((group) => group.items);
+
 export default function BusinessDashboard() {
   const router = useRouter();
   const [activeMenu, setActiveMenu] = useState<MenuItem>('dashboard');
   const [user, setUser] = useState<User | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [navQuery, setNavQuery] = useState('');
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Get user data from localStorage
     const storedUser = localStorage.getItem('user');
-    
+
     if (!storedUser) {
       router.push('/login');
       return;
     }
 
     const userData = JSON.parse(storedUser);
-    
+
     if (userData.user_type !== 'business') {
       router.push('/dashboard');
       return;
@@ -59,21 +120,44 @@ export default function BusinessDashboard() {
     setUser(userData);
   }, [router]);
 
-  const menuItems: MenuItemConfig[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={24} /> },
-    { id: 'bookings', label: 'Bookings', icon: <Calendar size={24} /> },
-    { id: 'manage-rooms', label: 'Manage Rooms', icon: <Bed size={24} /> },
-    { id: 'events-center', label: 'Events Center', icon: <Tent size={24} /> },
-    { id: 'calendar', label: 'Calendar', icon: <CalendarDays size={24} /> },
-    { id: 'customers', label: 'Customers', icon: <Users size={24} /> },
-    { id: 'reports', label: 'Reports', icon: <BarChart3 size={24} /> },
-    { id: 'settings', label: 'Settings', icon: <Settings size={24} /> },
-  ];
+  // Cmd/Ctrl+K focuses the sidebar nav search
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Close the account dropdown on outside click
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+        setIsAccountMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
     router.push('/login');
   };
+
+  const currentPage = allMenuItems.find((item) => item.id === activeMenu) ?? allMenuItems[0];
+  const query = navQuery.trim().toLowerCase();
+  const visibleGroups = query
+    ? menuGroups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => item.label.toLowerCase().includes(query)),
+        }))
+        .filter((group) => group.items.length > 0)
+    : menuGroups;
 
   if (!user) {
     return (
@@ -86,63 +170,166 @@ export default function BusinessDashboard() {
   return (
     <div className="min-h-screen bg-white p-8">
       <div className="flex gap-8 max-w-[1600px] mx-auto">
-        
+
         {/* Sidebar */}
-       <aside className="w-80 bg-white rounded-3xl shadow-xl shadow-black/80 p-6 flex flex-col h-fit sticky top-20">
-          <div className='text-center font-bold text-4xl text-black py-5'>Tusha </div>
-          
-          <nav className="space-y-2 flex-1">
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveMenu(item.id)}
-                className={`
-                  w-full flex items-center gap-4 px-6 py-4 rounded-xl
-                  transition-all duration-200
-                  ${activeMenu === item.id 
-                    ? 'bg-black text-white font-semibold' 
-                    : 'text-gray-700 hover:bg-gray-50'
-                  }
-                `}
-              >
-                {item.icon}
-                <span className="text-lg">{item.label}</span>
-              </button>
+        <motion.aside
+          initial={{ opacity: 0, x: -16, filter: 'blur(6px)' }}
+          animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+          transition={{ type: 'spring', duration: 0.65, bounce: 0 }}
+          className={`${isSidebarCollapsed ? 'w-24' : 'w-80'} shrink-0 bg-white rounded-3xl shadow-xl shadow-black/10 ring-1 ring-black/5 p-4 flex flex-col h-fit sticky top-20 transition-[width] duration-300 ease-out`}
+        >
+          {/* Brand + collapse toggle */}
+          <div className={`flex items-center py-3 px-2 ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+            {!isSidebarCollapsed && (
+              <span className="font-semibold text-2xl tracking-tight text-black">tusha</span>
+            )}
+            <button
+              onClick={() => setIsSidebarCollapsed((v) => !v)}
+              aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+            >
+              {isSidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+            </button>
+          </div>
+
+          {/* Nav search */}
+          {!isSidebarCollapsed && (
+            <div className="px-2 pb-2 pt-1">
+              <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2">
+                <Search size={15} className="text-gray-400 shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  value={navQuery}
+                  onChange={(e) => setNavQuery(e.target.value)}
+                  placeholder="Find a section"
+                  aria-label="Find a dashboard section"
+                  className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
+                />
+                {navQuery === '' && (
+                  <kbd className="hidden sm:flex items-center justify-center rounded-md bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-400 shadow-sm">
+                    ⌘K
+                  </kbd>
+                )}
+              </div>
+            </div>
+          )}
+
+          <nav className="flex-1 space-y-4 overflow-y-auto px-0 py-2">
+            {visibleGroups.map((group) => (
+              <div key={group.label} className="space-y-1">
+                {!isSidebarCollapsed && (
+                  <p className="px-6 pb-1 text-xs font-medium uppercase tracking-wide text-gray-400">
+                    {group.label}
+                  </p>
+                )}
+                {group.items.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveMenu(item.id)}
+                    title={isSidebarCollapsed ? item.label : undefined}
+                    className={`
+                      w-full flex items-center gap-4 rounded-xl
+                      transition-[background-color,color,transform] duration-200 ease-out active:scale-[0.98]
+                      ${isSidebarCollapsed ? 'justify-center px-0 py-3.5' : 'px-6 py-3.5'}
+                      ${activeMenu === item.id
+                        ? 'bg-black text-white font-medium shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)]'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }
+                    `}
+                  >
+                    {item.icon}
+                    {!isSidebarCollapsed && <span className="text-base tracking-tight">{item.label}</span>}
+                  </button>
+                ))}
+              </div>
             ))}
           </nav>
 
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-4 px-6 py-4 rounded-xl text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all duration-200 mt-4"
-          >
-            <LogOut size={24} />
-            <span className="text-lg">Log Out</span>
-          </button>
-        </aside>
+          {/* Account */}
+          <div ref={accountMenuRef} className="relative mt-2 border-t border-gray-100 pt-3">
+            {isAccountMenuOpen && (
+              <div className={`absolute bottom-full mb-2 ${isSidebarCollapsed ? 'left-0' : 'left-0 right-0'} rounded-xl bg-white shadow-xl ring-1 ring-black/5 p-1.5 ${isSidebarCollapsed ? 'w-48' : ''}`}>
+                <button
+                  onClick={() => { setActiveMenu('settings'); setIsAccountMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <Settings size={16} />
+                  Settings
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                >
+                  <LogOut size={16} />
+                  Log Out
+                </button>
+              </div>
+            )}
 
-        {/* Main Content */}
-        <main className="flex-1">
-          {/* User Greeting */}
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-5xl font-bold text-gray-800">
-              Hello, {user.businessName || 'Business Owner'}
-            </h1>
-            <div className="w-16 h-16 rounded-full bg-gray-300 overflow-hidden flex items-center justify-center">
-              <span className="text-2xl font-bold text-gray-600">
+            <button
+              onClick={() => setIsAccountMenuOpen((v) => !v)}
+              className={`w-full flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-gray-50 ${isSidebarCollapsed ? 'justify-center' : ''}`}
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black text-sm font-semibold text-white">
                 {user.businessName ? user.businessName.charAt(0).toUpperCase() : 'B'}
               </span>
-            </div>
+              {!isSidebarCollapsed && (
+                <>
+                  <span className="flex-1 truncate text-left text-sm font-medium text-gray-800">
+                    {user.businessName || 'Business Owner'}
+                  </span>
+                  <ChevronDown size={16} className="text-gray-400" />
+                </>
+              )}
+            </button>
           </div>
+        </motion.aside>
+
+        {/* Main Content */}
+        <main className="flex-1 min-w-0">
+          {/* Topbar */}
+          <motion.div
+            initial={{ opacity: 0, y: -10, filter: 'blur(6px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            transition={{ type: 'spring', duration: 0.65, bounce: 0, delay: 0.08 }}
+            className="flex justify-between items-center mb-8"
+          >
+            <div>
+              <div className="flex items-center gap-2.5 text-gray-400">
+                {currentPage.icon}
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
+                  </span>
+                  Live
+                </span>
+              </div>
+              <h1 className="mt-1 text-4xl font-semibold tracking-tight text-gray-900">
+                {currentPage.label}
+              </h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Welcome back, {user.businessName || 'Business Owner'}
+              </p>
+            </div>
+          </motion.div>
 
           {/* Dynamic Content */}
-          {activeMenu === 'dashboard' && <DashboardContent userId={user.user_id} />}
-          {activeMenu === 'bookings' && <BookingsContent userId={user.user_id} />}
-          {activeMenu === 'manage-rooms' && <ManageRoomsContent userId={user.user_id} />}
-          {activeMenu === 'events-center' && <EventsCenterContent />}
-          {activeMenu === 'calendar' && <CalendarContent />}
-          {activeMenu === 'customers' && <CustomersContent />}
-          {activeMenu === 'reports' && <ReportsContent />}
-          {activeMenu === 'settings' && <SettingsContent />}
+          <motion.div
+            key={activeMenu}
+            initial="hidden"
+            animate="visible"
+            variants={fadeInVariants}
+          >
+            {activeMenu === 'dashboard' && <DashboardContent userId={user.user_id} />}
+            {activeMenu === 'bookings' && <BookingsContent userId={user.user_id} />}
+            {activeMenu === 'manage-rooms' && <ManageRoomsContent userId={user.user_id} />}
+            {activeMenu === 'events-center' && <EventsCenterContent />}
+            {activeMenu === 'calendar' && <CalendarContent />}
+            {activeMenu === 'customers' && <CustomersContent />}
+            {activeMenu === 'reports' && <ReportsContent />}
+            {activeMenu === 'settings' && <SettingsContent />}
+          </motion.div>
         </main>
       </div>
     </div>
@@ -161,7 +348,7 @@ const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
 
   const fetchPropertyCount = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/properties/count/${userId}`);
+      const response = await fetch(`${API_URL}/api/properties/count/${userId}`, { credentials: 'include' });
       const data = await response.json();
       if (response.ok) {
         setPropertyCount(data.count);
@@ -173,7 +360,7 @@ const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
 
     const fetchRoomCount = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/rooms/count/${userId}`);
+      const response = await fetch(`${API_URL}/api/rooms/count/${userId}`, { credentials: 'include' });
       const data = await response.json();
       if (response.ok) {
         setRoomCount(data.count);
@@ -184,64 +371,64 @@ const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <motion.div initial="hidden" animate="visible" variants={staggerContainerVariants} className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-6">  
+      <div className="grid grid-cols-3 gap-6">
         <StatCard title="Buildings" value={propertyCount.toString()} icon={<BuildingIcon size={40} />} />
-        <StatCard   title="Rooms" value={roomCount.toString()} icon={<BedIcon size={40} />} />
+        <StatCard title="Rooms" value={roomCount.toString()} icon={<BedIcon size={40} />} />
         <StatCard title="Events" value="2" icon="⛺" />
       </div>
 
       {/* Revenue Section */}
-      <div className="grid grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl shadow-xl shadow-black/40 p-8">
-          <h2 className="text-2xl font-semibold mb-6">Revenue This Month</h2>
-          <p className="text-4xl font-bold">ZMW7000</p>
+      <motion.div variants={fadeInVariants} className="grid grid-cols-2 gap-6">
+        <div className="bg-white rounded-2xl shadow-xl shadow-black/5 ring-1 ring-black/5 p-8">
+          <h2 className="text-xl font-semibold tracking-tight mb-6">Revenue This Month</h2>
+          <p className="text-4xl font-semibold tracking-tight">ZMW7000</p>
           <div className="mt-6 p-6 border-2 border-yellow-400 rounded-2xl bg-yellow-50">
             <p className="text-sm text-gray-600 mb-2">Revenue Today</p>
-            <p className="text-3xl font-bold">ZMW500</p>
+            <p className="text-3xl font-semibold tracking-tight">ZMW500</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl shadow-black/40 p-8">
+        <div className="bg-white rounded-2xl shadow-xl shadow-black/5 ring-1 ring-black/5 p-8">
           <div className="grid grid-cols-2 gap-8">
             <div>
-              <h3 className="text-xl text-gray-600 mb-4">Check Ins</h3>
-              <p className="text-5xl font-bold">9</p>
+              <h3 className="text-base text-gray-500 mb-4">Check Ins</h3>
+              <p className="text-5xl font-semibold tracking-tight">9</p>
             </div>
             <div className="border-l-2 border-gray-200 pl-8">
-              <h3 className="text-xl text-gray-600 mb-4">Bookings</h3>
-              <p className="text-5xl font-bold">12</p>
+              <h3 className="text-base text-gray-500 mb-4">Bookings</h3>
+              <p className="text-5xl font-semibold tracking-tight">12</p>
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Events Table */}
-      <div className="bg-white rounded-3xl shadow-xl shadow-black/40 p-8">
+      <motion.div variants={fadeInVariants} className="bg-white rounded-3xl shadow-xl shadow-black/5 ring-1 ring-black/5 p-8">
         <table className="w-full">
           <thead>
             <tr className="border-b-2 border-gray-200">
-              <th className="text-left py-4 px-4 text-xl font-semibold">Event type</th>
-              <th className="text-left py-4 px-4 text-xl font-semibold">Number of Guests</th>
-              <th className="text-left py-4 px-4 text-xl font-semibold">Date</th>
+              <th className="text-left py-4 px-4 text-sm font-semibold text-gray-500">Event type</th>
+              <th className="text-left py-4 px-4 text-sm font-semibold text-gray-500">Number of Guests</th>
+              <th className="text-left py-4 px-4 text-sm font-semibold text-gray-500">Date</th>
             </tr>
           </thead>
           <tbody>
             <tr className="border-b border-gray-100">
-              <td className="py-4 px-4">Wedding</td>
+              <td className="py-4 px-4 font-medium">Wedding</td>
               <td className="py-4 px-4">255</td>
               <td className="py-4 px-4">19 Mar 26</td>
             </tr>
             <tr>
-              <td className="py-4 px-4">Birthday party</td>
+              <td className="py-4 px-4 font-medium">Birthday party</td>
               <td className="py-4 px-4">50</td>
               <td className="py-4 px-4">19 Mar 26</td>
             </tr>
           </tbody>
         </table>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
@@ -260,7 +447,7 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
 
   const fetchProperties = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/properties/user/${userId}`);
+      const response = await fetch(`${API_URL}/api/properties/user/${userId}`, { credentials: 'include' });
       const data = await response.json();
       if (response.ok) {
         setProperties(data.properties || []);
@@ -272,7 +459,7 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
 
   const fetchRooms = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/rooms/user/${userId}`);
+      const response = await fetch(`${API_URL}/api/rooms/user/${userId}`, { credentials: 'include' });
       const data = await response.json();
       if (response.ok) {
         setRooms(data.rooms || []);
@@ -298,39 +485,39 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
   }
 
   return (
-    <div className="space-y-8">
+    <motion.div initial="hidden" animate="visible" variants={staggerContainerVariants} className="space-y-8">
       {/* Header with Add Buttons */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-4xl font-bold">Add and Edit Listings</h2>
-     <div className="flex gap-4">
-  <button 
-    onClick={() => router.push('/add-property')}
-    className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-3 rounded-full flex items-center gap-2 transition-colors"
-  >
-    Add Property 
-    <AddIcon size={24} />
-  </button>
-  
-  <button 
-    onClick={() => router.push('/add-room')}
-    className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-3 rounded-full flex items-center gap-2 transition-colors"
-  >
-    Add Room 
-    <AddIcon size={24} />
-  </button>
-</div>
-      </div>
+      <motion.div variants={fadeInVariants} className="flex justify-between items-center">
+        <h2 className="text-3xl font-semibold tracking-tight">Add and Edit Listings</h2>
+        <div className="flex gap-3">
+          <button
+            onClick={() => router.push('/add-property')}
+            className="inline-flex items-center gap-2 rounded-full bg-yellow-400 px-6 py-3 text-sm font-semibold text-black shadow-[inset_0_2px_0_0_rgba(255,255,255,0.7),inset_0_-1px_0_0_rgba(0,0,0,0.15)] transition-[background-color,transform] duration-200 ease-out hover:bg-yellow-500 active:scale-[0.97]"
+          >
+            Add Property
+            <AddIcon size={20} />
+          </button>
+
+          <button
+            onClick={() => router.push('/add-room')}
+            className="inline-flex items-center gap-2 rounded-full bg-yellow-400 px-6 py-3 text-sm font-semibold text-black shadow-[inset_0_2px_0_0_rgba(255,255,255,0.7),inset_0_-1px_0_0_rgba(0,0,0,0.15)] transition-[background-color,transform] duration-200 ease-out hover:bg-yellow-500 active:scale-[0.97]"
+          >
+            Add Room
+            <AddIcon size={20} />
+          </button>
+        </div>
+      </motion.div>
 
       {/* Properties Section */}
-      <div>
-        <h3 className="text-3xl font-bold mb-6">Properties</h3>
+      <motion.div variants={fadeInVariants}>
+        <h3 className="text-xl font-semibold tracking-tight mb-6">Properties</h3>
         {properties.length === 0 ? (
-          <div className="bg-white rounded-3xl shadow-lg p-8 text-center text-gray-500">
-            No properties added yet. Click "Add Property" to get started!
+          <div className="bg-white rounded-3xl shadow-lg ring-1 ring-black/5 p-8 text-center text-gray-500">
+            No properties added yet. Click &quot;Add Property&quot; to get started!
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-6">
-       {properties.map((property) => (
+            {properties.map((property) => (
               <PropertyCard
                 key={property.property_id}
                 property={property}
@@ -339,19 +526,19 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
             ))}
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Rooms Section */}
-      <div>
+      <motion.div variants={fadeInVariants}>
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-3xl font-bold">Rooms</h3>
-          
+          <h3 className="text-xl font-semibold tracking-tight">Rooms</h3>
+
           {/* Property Filter Dropdown */}
           {properties.length > 0 && (
             <select
               value={selectedPropertyFilter}
               onChange={(e) => setSelectedPropertyFilter(e.target.value)}
-              className="px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-yellow-400 focus:outline-none"
+              className="px-4 py-2 border-2 border-gray-200 rounded-full text-sm focus:border-yellow-400 focus:outline-none"
             >
               <option value="all">All Properties</option>
               {properties.map((property) => (
@@ -364,25 +551,25 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
         </div>
 
         {rooms.length === 0 ? (
-          <div className="bg-white rounded-3xl shadow-lg p-8 text-center text-gray-500">
-            No rooms added yet. Click "Add Room" to get started!
+          <div className="bg-white rounded-3xl shadow-lg ring-1 ring-black/5 p-8 text-center text-gray-500">
+            No rooms added yet. Click &quot;Add Room&quot; to get started!
           </div>
         ) : (
-          <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
+          <div className="bg-white rounded-3xl shadow-lg ring-1 ring-black/5 overflow-hidden">
             <table className="w-full">
               <thead className="bg-black text-white">
                 <tr>
-                  <th className="text-left py-4 px-6 font-semibold">Room Type</th>
-                  <th className="text-left py-4 px-6 font-semibold">Room ID</th>
-                  <th className="text-left py-4 px-6 font-semibold">Property</th>
-                  <th className="text-left py-4 px-6 font-semibold">Amenities</th>
-                  <th className="text-left py-4 px-6 font-semibold">Price</th>
-                  <th className="text-center py-4 px-6 font-semibold">Action</th>
+                  <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight">Room Type</th>
+                  <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight">Room ID</th>
+                  <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight">Property</th>
+                  <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight">Amenities</th>
+                  <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight">Price</th>
+                  <th className="text-center py-4 px-6 text-sm font-semibold tracking-tight">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRooms.map((room, index) => (
-                  <tr 
+                  <tr
                     key={room.room_id}
                     className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}
                   >
@@ -392,9 +579,9 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
                     <td className="py-4 px-6">{room.amenities?.length || 0}</td>
                     <td className="py-4 px-6 font-semibold">ZMW{room.base_price}</td>
                     <td className="py-4 px-6 text-center">
-                      <button 
+                      <button
                         onClick={() => router.push(`/edit-room/${room.room_id}`)}
-                        className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-2 rounded-full transition-colors"
+                        className="inline-flex items-center rounded-full bg-yellow-400 px-6 py-2 text-sm font-semibold text-black shadow-[inset_0_2px_0_0_rgba(255,255,255,0.7),inset_0_-1px_0_0_rgba(0,0,0,0.15)] transition-[background-color,transform] duration-200 ease-out hover:bg-yellow-500 active:scale-[0.97]"
                       >
                         Edit
                       </button>
@@ -405,8 +592,8 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
             </table>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
@@ -419,13 +606,16 @@ interface StatCardProps {
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => {
   return (
-    <div className="bg-white rounded-2xl shadow-xl shadow-black/40 p-8">
+    <motion.div
+      variants={fadeInVariants}
+      className="bg-white rounded-2xl shadow-xl shadow-black/5 ring-1 ring-black/5 p-8 transition-shadow hover:shadow-2xl"
+    >
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-semibold text-gray-700">{title}</h3>
+        <h3 className="text-base font-medium text-gray-500">{title}</h3>
         <div>{icon}</div>
       </div>
-      <p className="text-5xl font-bold">{value}</p>
-    </div>
+      <p className="text-5xl font-semibold tracking-tight">{value}</p>
+    </motion.div>
   );
 };
 
@@ -625,7 +815,7 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
     setLoading(true);
     try {
       const [roomsRes, bookingsRes] = await Promise.all([
-        fetch(`${API_URL}/api/rooms/user/${userId}`),
+        fetch(`${API_URL}/api/rooms/user/${userId}`, { credentials: 'include' }),
         fetch(`${API_URL}/api/bookings/user/${userId}`, { credentials: 'include' }),
       ]);
       const roomsData    = await roomsRes.json();
@@ -664,10 +854,10 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
   }
 
   return (
-    <div className="space-y-4">
+    <motion.div initial="hidden" animate="visible" variants={staggerContainerVariants} className="space-y-4">
       {/* Header */}
-      <div className="flex flex-wrap justify-between items-center gap-4">
-        <h2 className="text-4xl font-bold text-gray-800">Manage Bookings</h2>
+      <motion.div variants={fadeInVariants} className="flex flex-wrap justify-between items-center gap-4">
+        <h2 className="text-3xl font-semibold tracking-tight text-gray-900">Manage Bookings</h2>
 
         {/* Date filter */}
         <div className="flex items-center gap-3 flex-wrap">
@@ -687,7 +877,7 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
           />
           <button
             onClick={handleApply}
-            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-4 py-1.5 rounded-full text-sm transition-colors"
+            className="inline-flex items-center rounded-full bg-yellow-400 px-4 py-1.5 text-sm font-semibold text-black shadow-[inset_0_2px_0_0_rgba(255,255,255,0.7),inset_0_-1px_0_0_rgba(0,0,0,0.15)] transition-[background-color,transform] duration-200 ease-out hover:bg-yellow-500 active:scale-[0.97]"
           >
             Apply
           </button>
@@ -698,10 +888,10 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
             Reset
           </button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Calendar */}
-      <div className="bg-white rounded-3xl shadow-xl shadow-black/20 overflow-hidden">
+      <motion.div variants={fadeInVariants} className="bg-white rounded-3xl shadow-xl shadow-black/5 ring-1 ring-black/5 overflow-hidden">
         {rooms.length === 0 ? (
           <div className="p-12 text-center text-gray-400 text-lg">
             No rooms found. Add rooms to see the booking calendar.
@@ -803,17 +993,18 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
             </table>
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Booking detail modal */}
       {selected && (
         <BookingModal booking={selected} onClose={() => setSelected(null)} />
       )}
-    </div>
+    </motion.div>
   );
 };
-const EventsCenterContent = () => <div className="bg-white rounded-3xl shadow-lg p-8 text-2xl">Events Center Content</div>;
-const CalendarContent = () => <div className="bg-white rounded-3xl shadow-lg p-8 text-2xl">Calendar Content</div>;
-const CustomersContent = () => <div className="bg-white rounded-3xl shadow-lg p-8 text-2xl">Customers Content</div>;
-const ReportsContent = () => <div className="bg-white rounded-3xl shadow-lg p-8 text-2xl">Reports Content</div>;
-const SettingsContent = () => <div className="bg-white rounded-3xl shadow-lg p-8 text-2xl">Settings Content</div>;
+const placeholderClass = "bg-white rounded-3xl shadow-lg ring-1 ring-black/5 p-8 text-xl font-medium tracking-tight text-gray-700";
+const EventsCenterContent = () => <div className={placeholderClass}>Events Center Content</div>;
+const CalendarContent = () => <div className={placeholderClass}>Calendar Content</div>;
+const CustomersContent = () => <div className={placeholderClass}>Customers Content</div>;
+const ReportsContent = () => <div className={placeholderClass}>Reports Content</div>;
+const SettingsContent = () => <div className={placeholderClass}>Settings Content</div>;
