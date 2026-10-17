@@ -472,7 +472,7 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
   };
 
   const handlePropertyClick = (propertyId: number) => {
-    router.push(`/property/${propertyId}`);
+    router.push(`/add-property/${propertyId}`);
   };
 
   // Filter rooms based on selected property

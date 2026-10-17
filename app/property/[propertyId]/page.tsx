@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { HeroSection } from "@/components/customer";
 import { API_URL } from "@/lib/api";
 import { mealPlanLabel, Residency } from "@/lib/roomTypes";
+import { facilityLabel } from "@/lib/facilities";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -439,7 +440,7 @@ export default function PropertyDetail({ params }: { params: Promise<{ propertyI
                 <div className="flex flex-wrap gap-2">
                   {property.amenities.length > 0 ? (
                     property.amenities.map((a) => (
-                      <AmenityPill key={a.amenity_id} name={a.name} />
+                      <AmenityPill key={a.amenity_id} name={facilityLabel(a.name)} />
                     ))
                   ) : (
                     <p className="text-gray-400 text-sm">No amenities listed</p>
