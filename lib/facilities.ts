@@ -123,6 +123,26 @@ export function parseCoordinates(text: string): { lat: number; lng: number } | n
   return null;
 }
 
+export function propertyTypeLabel(value: string): string {
+  return PROPERTY_TYPES.find((t) => t.value === value)?.label ?? value.replace(/_/g, ' ');
+}
+
+/**
+ * International digits for a phone number, assuming Zambia (+260) when it's
+ * written locally ("0977 123 456" → "260977123456"). Used for wa.me and tel: links.
+ */
+export function internationalDigits(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (phone.trim().startsWith('+') || digits.startsWith('260')) return digits;
+  if (digits.startsWith('0')) return `260${digits.slice(1)}`;
+  return digits;
+}
+
+export function whatsappLink(phone: string, message?: string): string {
+  const text = message ? `?text=${encodeURIComponent(message)}` : '';
+  return `https://wa.me/${internationalDigits(phone)}${text}`;
+}
+
 /** OpenStreetMap embed URL centred on a point — no API key or map library needed. */
 export function osmEmbedUrl(lat: number, lng: number, zoomDelta = 0.01): string {
   const bbox = [lng - zoomDelta, lat - zoomDelta, lng + zoomDelta, lat + zoomDelta].join(',');

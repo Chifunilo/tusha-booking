@@ -1,482 +1,629 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { use, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { HeroSection } from "@/components/customer";
+import BookingHeader from "@/components/customer/BookingHeader";
+import PropertyGallery from "@/components/property/PropertyGallery";
+import RoomTypeCard, { RoomType, priceFor } from "@/components/property/RoomTypeCard";
 import { API_URL } from "@/lib/api";
-import { mealPlanLabel, Residency } from "@/lib/roomTypes";
-import { facilityLabel } from "@/lib/facilities";
+import { formatZMW, Residency } from "@/lib/roomTypes";
+import {
+  CANCELLATION_POLICIES,
+  FACILITY_GROUPS,
+  PAYMENT_ON_ARRIVAL,
+  facilityLabel,
+  internationalDigits,
+  osmEmbedUrl,
+  propertyTypeLabel,
+  whatsappLink,
+} from "@/lib/facilities";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface Amenity {
-  amenity_id: number;
-  name: string;
-}
-
-interface RoomType {
-  room_type_id: number;
-  name: string;
-  description: string | null;
-  max_occupancy: number;
-  num_beds: number;
-  bed_type: string | null;
-  amenities: string[];
-  images: string[];
-  meal_plan: string;
-  price: number;
-  non_resident_price: number | null;
-  unit_count: number;
-}
-
-function priceFor(room: RoomType, residency: Residency): number {
-  return residency === "non_resident" && room.non_resident_price !== null ? room.non_resident_price : room.price;
-}
 
 interface PropertyDetail {
   property_id: number;
   property_name: string;
-  city: string;
+  property_type: string;
+  description: string | null;
+  street: string | null;
+  area: string | null;
+  city: string | null;
+  province: string | null;
   country: string;
-  address: string;
-  latitude?: number;
-  longitude?: number;
+  latitude: number | null;
+  longitude: number | null;
+  directions: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  email: string | null;
   images: string[];
-  amenities: Amenity[];
+  amenities: { amenity_id: number; name: string }[];
   room_types: RoomType[];
   avg_rating: number;
   review_count: number;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  cancellation_policy: string | null;
+  children_allowed: boolean | null;
+  pets_allowed: boolean | null;
+  smoking_allowed: boolean | null;
+  payment_on_arrival: string[];
+  house_rules: string | null;
 }
+
+type Availability = { key: string; available: Record<number, number> | null };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// dateStr is a plain "YYYY-MM-DD" calendar date, not an instant — format it
-// by forcing UTC so the viewer's own timezone can never shift the displayed day.
-function formatDate(dateStr: string): string {
-  return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function formatCurrency(amount: number): string {
-  return `ZMW ${amount.toLocaleString()}`;
+function nightsBetween(checkIn: string, checkOut: string): number {
+  return Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86_400_000);
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// "14:00" → "2:00 PM"
+function formatTime(hhmm: string | null): string | null {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  return new Date(Date.UTC(2000, 0, 1, h, m)).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+}
 
-/** Yellow pill badge used for amenities */
-function AmenityPill({ name }: { name: string }) {
+// ─── Small building blocks ────────────────────────────────────────────────────
+
+function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
   return (
-    <span className="inline-block border border-yellow-400 text-yellow-600 text-sm font-medium px-4 py-1 rounded-full bg-yellow-50 whitespace-nowrap">
-      {name}
-    </span>
+    <section id={id} className="scroll-mt-6 border-t border-gray-200 py-8 first:border-t-0 first:pt-0">
+      <h2 className="mb-4 text-xl font-bold text-gray-900">{title}</h2>
+      {children}
+    </section>
   );
 }
 
-/** Image gallery: one large image on the left, two stacked on the right */
-function PropertyGallery({ images }: { images: string[] }) {
-  const [selected, setSelected] = useState(0);
-  const display = images.length > 0 ? images : ["/placeholder.jpg"];
+function Check({ ok }: { ok: boolean }) {
+  return ok ? (
+    <svg className="shrink-0 text-green-600" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  ) : (
+    <svg className="shrink-0 text-gray-400" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s-7-6.2-7-11.5a7 7 0 1114 0C19 14.8 12 21 12 21z" />
+      <circle cx="12" cy="9.5" r="2.5" />
+    </svg>
+  );
+}
+
+function About({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const long = text.length > 450;
+  return (
+    <div>
+      <p className={`whitespace-pre-line leading-relaxed text-gray-700 ${long && !expanded ? "line-clamp-5" : ""}`}>{text}</p>
+      {long && (
+        <button onClick={() => setExpanded((e) => !e)} className="mt-2 text-sm font-semibold text-gray-900 underline">
+          {expanded ? "Show less" : "Read more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Facilities({ keys }: { keys: string[] }) {
+  const owned = new Set(keys);
+  const groups = FACILITY_GROUPS.map((g) => ({ title: g.title, items: g.items.filter((i) => owned.has(i.key)) })).filter(
+    (g) => g.items.length > 0,
+  );
+  const known = new Set<string>(FACILITY_GROUPS.flatMap((g) => g.items.map((i) => i.key)));
+  const other = keys.filter((k) => !known.has(k));
+
+  if (keys.length === 0) return <p className="text-gray-500">The property hasn&apos;t listed its facilities yet.</p>;
 
   return (
-    <div className="flex gap-2 h-80">
-      {/* Main image */}
-      <div className="flex-1 rounded-xl overflow-hidden cursor-pointer">
-        <img
-          src={display[selected]}
-          alt="Property main"
-          className="w-full h-full object-cover transition-all duration-300"
-        />
-      </div>
-
-      {/* Thumbnails stack */}
-      {display.length > 1 && (
-        <div className="flex flex-col gap-2 w-44">
-          {display.slice(0, 3).map((img, idx) => (
-            <div
-              key={idx}
-              onClick={() => setSelected(idx)}
-              className={`flex-1 rounded-xl overflow-hidden cursor-pointer border-2 transition-all duration-200 ${
-                selected === idx ? "border-yellow-400" : "border-transparent"
-              }`}
-            >
-              <img
-                src={img}
-                alt={`Property ${idx + 1}`}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          ))}
+    <div className="grid gap-6 sm:grid-cols-2">
+      {groups.map((g) => (
+        <div key={g.title}>
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">{g.title}</h3>
+          <ul className="space-y-1.5">
+            {g.items.map((i) => (
+              <li key={i.key} className="flex items-center gap-2 text-gray-800"><Check ok /> {i.label}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      {other.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">Other</h3>
+          <ul className="space-y-1.5">
+            {other.map((k) => (
+              <li key={k} className="flex items-center gap-2 capitalize text-gray-800"><Check ok /> {facilityLabel(k)}</li>
+            ))}
+          </ul>
         </div>
       )}
     </div>
   );
 }
 
-/** Show Map placeholder */
-function MapPlaceholder({ address }: { address: string }) {
-  const [clicked, setClicked] = useState(false);
-
-  const handleShowMap = () => {
-    setClicked(true);
-    const query = encodeURIComponent(address);
-    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, "_blank");
-  };
+function Location({ property, locationLine }: { property: PropertyDetail; locationLine: string }) {
+  const { latitude: lat, longitude: lng } = property;
+  const hasPin = lat !== null && lng !== null;
+  const destination = hasPin ? `${lat},${lng}` : [property.street, locationLine].filter(Boolean).join(", ");
 
   return (
-    <div className="bg-gray-100 rounded-2xl h-full flex flex-col items-center justify-center min-h-48 border border-gray-200">
-      <div className="text-gray-400 mb-4">
-        <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 20.25l-4.72-4.72a9 9 0 1112.44 0L12 20.25l-3-3z" />
-          <circle cx="12" cy="10" r="3" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+    <div className="space-y-4">
+      {hasPin && (
+        <iframe
+          title={`Map showing ${property.property_name}`}
+          src={osmEmbedUrl(lat, lng, 0.008)}
+          className="h-72 w-full rounded-2xl border border-gray-200"
+          loading="lazy"
+        />
+      )}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="text-gray-700">
+          {property.street && <p className="font-medium text-gray-900">{property.street}</p>}
+          <p>{locationLine}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
+          >
+            <PinIcon /> Get directions
+          </a>
+          {hasPin && (
+            <a
+              href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+            >
+              Larger map
+            </a>
+          )}
+        </div>
       </div>
-      <button
-        onClick={handleShowMap}
-        className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold px-8 py-3 rounded-xl transition-colors duration-200 text-base"
-      >
-        Show map
-      </button>
+      {property.directions && (
+        <div className="rounded-2xl bg-yellow-50 p-4">
+          <p className="mb-1 text-sm font-semibold text-gray-900">How to get there</p>
+          <p className="whitespace-pre-line text-sm text-gray-700">{property.directions}</p>
+        </div>
+      )}
     </div>
   );
 }
 
-/** Booking filter bar: guests + date range */
-function BookingFilter({
-  guests,
-  setGuests,
+function Policies({ property }: { property: PropertyDetail }) {
+  const policy = CANCELLATION_POLICIES.find((p) => p.value === property.cancellation_policy);
+  const payments = PAYMENT_ON_ARRIVAL.filter((p) => property.payment_on_arrival?.includes(p.value)).map((p) => p.label);
+  const checkIn = formatTime(property.check_in_time);
+  const checkOut = formatTime(property.check_out_time);
+  const rules: { label: string; allowed: boolean | null }[] = [
+    { label: "Children welcome", allowed: property.children_allowed },
+    { label: "Pets allowed", allowed: property.pets_allowed },
+    { label: "Smoking allowed", allowed: property.smoking_allowed },
+  ];
+
+  return (
+    <div className="grid gap-6 sm:grid-cols-2">
+      {(checkIn || checkOut) && (
+        <div>
+          <h3 className="mb-2 font-semibold text-gray-900">Check-in &amp; check-out</h3>
+          {checkIn && <p className="text-gray-700">Check-in from <strong>{checkIn}</strong></p>}
+          {checkOut && <p className="text-gray-700">Check-out by <strong>{checkOut}</strong></p>}
+        </div>
+      )}
+
+      {policy && (
+        <div>
+          <h3 className="mb-2 font-semibold text-gray-900">Cancellation · {policy.label}</h3>
+          <p className="text-gray-700">{policy.detail}.</p>
+        </div>
+      )}
+
+      <div>
+        <h3 className="mb-2 font-semibold text-gray-900">House rules</h3>
+        <ul className="space-y-1.5">
+          {rules
+            .filter((r) => r.allowed !== null)
+            .map((r) => (
+              <li key={r.label} className={`flex items-center gap-2 ${r.allowed ? "text-gray-800" : "text-gray-500"}`}>
+                <Check ok={!!r.allowed} /> {r.allowed ? r.label : r.label.replace(/allowed|welcome/, "not allowed")}
+              </li>
+            ))}
+        </ul>
+        {property.house_rules && <p className="mt-3 whitespace-pre-line text-sm text-gray-700">{property.house_rules}</p>}
+      </div>
+
+      <div>
+        <h3 className="mb-2 font-semibold text-gray-900">Paying</h3>
+        <p className="text-gray-700">You pay a deposit online to confirm. The balance is paid at the property.</p>
+        {payments.length > 0 && (
+          <p className="mt-1 text-gray-700">
+            At the property: <strong>{payments.join(", ")}</strong>
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Booking panel (sticky on desktop) ────────────────────────────────────────
+
+function BookingPanel({
+  property,
+  fromPrice,
   checkIn,
   setCheckIn,
   checkOut,
   setCheckOut,
+  guests,
+  setGuests,
+  maxGuests,
+  residency,
+  setResidency,
+  showResidency,
+  dateHint,
+  checkInRef,
+  onSeeRooms,
 }: {
+  property: PropertyDetail;
+  fromPrice: number | null;
+  checkIn: string;
+  setCheckIn: (d: string) => void;
+  checkOut: string;
+  setCheckOut: (d: string) => void;
   guests: number;
   setGuests: (n: number) => void;
-  checkIn: string | null;
-  setCheckIn: (d: string | null) => void;
-  checkOut: string | null;
-  setCheckOut: (d: string | null) => void;
+  maxGuests: number;
+  residency: Residency;
+  setResidency: (r: Residency) => void;
+  showResidency: boolean;
+  dateHint: boolean;
+  checkInRef: React.RefObject<HTMLInputElement | null>;
+  onSeeRooms: () => void;
 }) {
-  const dateLabel =
-    checkIn && checkOut
-      ? `${formatDate(checkIn)} – ${formatDate(checkOut)}`
-      : "Check-in – Check-out";
+  const today = localToday();
+  const nights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) : null;
+  const contactMessage = `Hi, I found ${property.property_name} on Tusha and have a question.`;
 
   return (
-    <div className="flex items-center gap-3 mt-6">
-      {/* Guest count */}
-      <div className="flex items-center border-2 border-gray-800 rounded-xl px-4 py-3 gap-3 min-w-[120px]">
-        <button
-          onClick={() => setGuests(Math.max(1, guests - 1))}
-          className="text-gray-600 hover:text-black font-bold text-lg leading-none"
-        >
-          −
-        </button>
-        <span className="text-base font-semibold w-4 text-center">{guests}</span>
-        <button
-          onClick={() => setGuests(guests + 1)}
-          className="text-gray-600 hover:text-black font-bold text-lg leading-none"
-        >
-          +
-        </button>
-        <svg className="text-gray-500 ml-1" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20c0-2.21-2.239-4-5-4s-5 1.79-5 4M12 13a4 4 0 100-8 4 4 0 000 8z" />
-        </svg>
-      </div>
+    <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-lg">
+      {fromPrice !== null && (
+        <p className="text-gray-600">
+          From <span className="text-2xl font-bold text-gray-900">{formatZMW(fromPrice)}</span> / night
+        </p>
+      )}
 
-      {/* Date range picker */}
-      <div className="flex items-center border-2 border-gray-800 rounded-xl px-4 py-3 gap-3 flex-1">
-        <span className="text-sm font-medium text-gray-700 flex-1">{dateLabel}</span>
-        <label className="cursor-pointer relative">
-          <svg className="text-gray-600" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-            <rect x="3" y="4" width="18" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16 2v4M8 2v4M3 10h18" />
-          </svg>
-          <input
-            type="date"
-            className="absolute inset-0 opacity-0 cursor-pointer w-full"
-            onChange={(e) => {
-              const d = e.target.value || null;
-              setCheckIn(d);
-              if (checkOut && d && d >= checkOut) setCheckOut(null);
-            }}
-          />
-        </label>
-      </div>
+      {property.room_types.length > 0 && (
+        <>
+          <div className={`grid grid-cols-2 overflow-hidden rounded-xl border-2 ${dateHint ? "border-red-500" : "border-gray-800"}`}>
+            <label className={`border-r-2 px-3 py-2 ${dateHint ? "border-red-500" : "border-gray-800"}`}>
+              <span className="block text-[11px] font-bold uppercase tracking-wide text-gray-600">Check-in</span>
+              <input
+                ref={checkInRef}
+                type="date"
+                min={today}
+                value={checkIn}
+                onChange={(e) => {
+                  setCheckIn(e.target.value);
+                  if (checkOut && e.target.value >= checkOut) setCheckOut("");
+                }}
+                className="w-full bg-transparent text-sm outline-none"
+              />
+            </label>
+            <label className="px-3 py-2">
+              <span className="block text-[11px] font-bold uppercase tracking-wide text-gray-600">Check-out</span>
+              <input
+                type="date"
+                min={checkIn || today}
+                value={checkOut}
+                onChange={(e) => setCheckOut(e.target.value)}
+                className="w-full bg-transparent text-sm outline-none"
+              />
+            </label>
+          </div>
+          {dateHint && <p className="-mt-2 text-sm text-red-600">Choose your check-in and check-out dates first.</p>}
 
-      {/* Check-out */}
-      {checkIn && (
-        <div className="flex items-center border-2 border-yellow-400 rounded-xl px-4 py-3 gap-3">
-          <span className="text-sm text-gray-500">Check-out</span>
-          <input
-            type="date"
-            className="text-sm font-medium text-gray-700 bg-transparent border-none outline-none cursor-pointer"
-            min={checkIn}
-            onChange={(e) => {
-              setCheckOut(e.target.value || null);
-            }}
-          />
+          <div className="flex items-center justify-between rounded-xl border-2 border-gray-800 px-3 py-2">
+            <span className="text-sm font-semibold text-gray-800">Guests</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setGuests(Math.max(1, guests - 1))}
+                disabled={guests <= 1}
+                aria-label="Fewer guests"
+                className="h-8 w-8 rounded-full border border-gray-400 text-lg leading-none disabled:opacity-30"
+              >
+                −
+              </button>
+              <span className="w-5 text-center font-semibold">{guests}</span>
+              <button
+                onClick={() => setGuests(Math.min(maxGuests, guests + 1))}
+                disabled={guests >= maxGuests}
+                aria-label="More guests"
+                className="h-8 w-8 rounded-full border border-gray-400 text-lg leading-none disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          {guests >= maxGuests && maxGuests > 1 && (
+            <p className="-mt-2 text-xs text-gray-500">The largest room here sleeps {maxGuests}. Bigger groups can book more than one room.</p>
+          )}
+
+          {showResidency && (
+            <div>
+              <p className="mb-1.5 text-sm font-semibold text-gray-800">Rates for</p>
+              <div className="grid grid-cols-2 rounded-xl bg-gray-100 p-1">
+                {(
+                  [
+                    { value: "resident", label: "Zambian resident" },
+                    { value: "non_resident", label: "Non-resident" },
+                  ] as const
+                ).map((o) => (
+                  <button
+                    key={o.value}
+                    onClick={() => setResidency(o.value)}
+                    className={`rounded-lg px-2 py-1.5 text-sm font-semibold ${residency === o.value ? "bg-white text-gray-900 shadow" : "text-gray-600"}`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-gray-500">You may be asked for an NRC or passport at check-in.</p>
+            </div>
+          )}
+
+          <button onClick={onSeeRooms} className="w-full rounded-xl bg-yellow-400 py-3 font-bold text-black hover:bg-yellow-500">
+            {nights ? `See rooms for ${nights} night${nights === 1 ? "" : "s"}` : "See rooms"}
+          </button>
+        </>
+      )}
+
+      {(property.whatsapp || property.phone) && (
+        <div className="space-y-2 border-t border-gray-100 pt-4">
+          <p className="text-sm font-semibold text-gray-800">Questions? Contact the property</p>
+          <div className="flex gap-2">
+            {property.whatsapp && (
+              <a
+                href={whatsappLink(property.whatsapp, contactMessage)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 rounded-xl bg-green-600 py-2 text-center text-sm font-semibold text-white hover:bg-green-700"
+              >
+                WhatsApp
+              </a>
+            )}
+            {property.phone && (
+              <a
+                href={`tel:+${internationalDigits(property.phone)}`}
+                className="flex-1 rounded-xl border border-gray-300 py-2 text-center text-sm font-semibold text-gray-800 hover:bg-gray-50"
+              >
+                Call
+              </a>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-/** Resident / non-resident rate switch — only shown when some room type prices them differently */
-function ResidencyToggle({ residency, setResidency }: { residency: Residency; setResidency: (r: Residency) => void }) {
-  const options: { value: Residency; label: string }[] = [
-    { value: "resident", label: "Zambian resident" },
-    { value: "non_resident", label: "Non-resident" },
-  ];
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
-  return (
-    <div className="mt-6 flex flex-wrap items-center gap-3">
-      <span className="text-sm text-gray-600">Rates shown for:</span>
-      <div className="inline-flex rounded-xl border-2 border-gray-800 p-1">
-        {options.map((o) => (
-          <button
-            key={o.value}
-            onClick={() => setResidency(o.value)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-              residency === o.value ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-      <span className="text-xs text-gray-500">You may be asked for an NRC or passport at check-in.</span>
-    </div>
-  );
-}
-
-/** Rooms table */
-function RoomsTable({
-  rooms,
-  guests,
-  residency,
-  onBook,
-}: {
-  rooms: RoomType[];
-  guests: number;
-  residency: Residency;
-  onBook: (room: RoomType) => void;
-}) {
-  const filtered = rooms.filter((r) => r.max_occupancy >= guests);
-
-  return (
-    <div className="mt-6 rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-gray-900 text-white">
-            <th className="text-left px-6 py-4 font-semibold">Room Type</th>
-            <th className="text-center px-6 py-4 font-semibold">Sleeps</th>
-            <th className="text-center px-6 py-4 font-semibold">Meals</th>
-            <th className="text-center px-6 py-4 font-semibold">Rooms</th>
-            <th className="text-center px-6 py-4 font-semibold">Price / night</th>
-            <th className="px-6 py-4"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="text-center py-12 text-gray-400">
-                No rooms sleep {guests} guest{guests > 1 ? "s" : ""}
-              </td>
-            </tr>
-          ) : (
-            filtered.map((room, idx) => (
-              <tr
-                key={room.room_type_id}
-                className={`border-t border-gray-100 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-yellow-50 transition-colors duration-150`}
-              >
-                <td className="px-6 py-4">
-                  <p className="font-medium text-gray-800">{room.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {room.num_beds} bed{room.num_beds === 1 ? "" : "s"}
-                    {room.bed_type ? ` · ${room.bed_type}` : ""}
-                    {room.amenities.length > 0 ? ` · ${room.amenities.join(", ")}` : ""}
-                  </p>
-                </td>
-                <td className="px-6 py-4 text-center text-gray-600">{room.max_occupancy}</td>
-                <td className="px-6 py-4 text-center text-gray-600">{mealPlanLabel(room.meal_plan)}</td>
-                <td className="px-6 py-4 text-center text-gray-600">{room.unit_count}</td>
-                <td className="px-6 py-4 text-center font-semibold text-gray-800">
-                  {formatCurrency(priceFor(room, residency))}
-                </td>
-                <td className="px-6 py-4 text-center">
-                  <button
-                    onClick={() => onBook(room)}
-                    className="px-5 py-2 rounded-xl font-bold text-sm transition-colors duration-200 bg-yellow-400 hover:bg-yellow-500 text-black cursor-pointer"
-                  >
-                    Book
-                  </button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
-
-export default function PropertyDetail({ params }: { params: Promise<{ propertyId: string }> }) {
+export default function PropertyDetailPage({ params }: { params: Promise<{ propertyId: string }> }) {
+  const propertyId = Number(use(params).propertyId);
   const router = useRouter();
+
   const [property, setProperty] = useState<PropertyDetail | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [propertyId, setPropertyId] = useState<number | null>(null);
 
-  // Booking filter state
-  const [guests, setGuests] = useState(1);
-  const [checkIn, setCheckIn] = useState<string | null>(null);
-  const [checkOut, setCheckOut] = useState<string | null>(null);
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
+  const [guests, setGuests] = useState(2);
   const [residency, setResidency] = useState<Residency>("resident");
-
-  const [activeTab, setActiveTab] = useState<"home" | "events" | "popular">("home");
-
-  // Unwrap params (Next.js 15+)
-  useEffect(() => {
-    params.then((resolvedParams) => {
-      const id = parseInt(resolvedParams.propertyId);
-      console.log('Property ID from URL:', id);
-      setPropertyId(id);
-    });
-  }, [params]);
+  const [availability, setAvailability] = useState<Availability | null>(null);
+  const [dateHint, setDateHint] = useState(false);
+  const checkInRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (propertyId) {
-      fetchProperty();
-    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/properties/customer/${propertyId}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (res.ok) setProperty(data.property);
+        else setError(data.message || "Property not found");
+      } catch {
+        if (!cancelled) setError("Failed to load property details");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [propertyId]);
 
-  const fetchProperty = async () => {
-    if (!propertyId) return;
-    
-    setLoading(true);
-    setError(null);
-    try {
-      console.log('Fetching property:', propertyId);
-      const res = await fetch(`${API_URL}/api/properties/customer/${propertyId}`);
-      const data = await res.json();
-      console.log('API Response:', data);
-      
-      if (res.ok) {
-        setProperty(data.property);
-      } else {
-        setError(data.message || "Property not found");
-      }
-    } catch (err) {
-      console.error('Fetch error:', err);
-      setError("Failed to load property details");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const datesKey = checkIn && checkOut && checkOut > checkIn ? `${checkIn}_${checkOut}` : null;
 
-  const handleBook = (room: RoomType) => {
-    if (!checkIn || !checkOut) {
-      alert("Please select check-in and check-out dates before booking.");
+  useEffect(() => {
+    if (!datesKey || !property?.room_types.length) return;
+    let cancelled = false;
+    (async () => {
+      const [ci, co] = datesKey.split("_");
+      try {
+        const res = await fetch(`${API_URL}/api/properties/customer/${propertyId}/availability?checkIn=${ci}&checkOut=${co}`);
+        const data = await res.json();
+        if (!cancelled) setAvailability({ key: datesKey, available: res.ok ? data.available : null });
+      } catch {
+        // Availability is a hint; without it the cards just don't show counts.
+        if (!cancelled) setAvailability({ key: datesKey, available: null });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [datesKey, propertyId, property?.room_types.length]);
+
+  const available = availability && availability.key === datesKey ? availability.available : null;
+  const nights = datesKey ? nightsBetween(checkIn, checkOut) : null;
+
+  const derived = useMemo(() => {
+    if (!property) return null;
+    const rooms = property.room_types;
+    return {
+      locationLine: [property.area, property.city, property.province, property.country].filter(Boolean).join(", "),
+      maxGuests: rooms.length ? Math.max(...rooms.map((r) => r.max_occupancy)) : 1,
+      showResidency: rooms.some((r) => r.non_resident_price !== null),
+    };
+  }, [property]);
+
+  const fromPrice = property?.room_types.length ? Math.min(...property.room_types.map((r) => priceFor(r, residency))) : null;
+  const effectiveGuests = derived ? Math.min(guests, derived.maxGuests) : guests;
+
+  const scrollToRooms = () => document.getElementById("rooms")?.scrollIntoView({ behavior: "smooth" });
+
+  const handleSelect = (room: RoomType) => {
+    if (!datesKey) {
+      setDateHint(true);
+      checkInRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      checkInRef.current?.focus();
       return;
     }
     router.push(
-      `/booking?propertyId=${propertyId}&roomTypeId=${room.room_type_id}&residency=${residency}&guests=${guests}&checkIn=${checkIn}&checkOut=${checkOut}`
+      `/booking?propertyId=${propertyId}&roomTypeId=${room.room_type_id}&residency=${residency}&guests=${effectiveGuests}&checkIn=${checkIn}&checkOut=${checkOut}`,
     );
   };
 
-  const handleSearch = async (location: string, price: string) => {
-    const params = new URLSearchParams();
-    if (location) params.append("city", location);
-    if (price) params.append("maxPrice", price);
-    router.push(`/?${params.toString()}`);
+  const setDate = (setter: (d: string) => void) => (d: string) => {
+    setter(d);
+    setDateHint(false);
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <HeroSection
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        onSearch={handleSearch}
-      />
+      <BookingHeader />
 
-      <div className="max-w-7xl mx-auto px-8 py-12">
-        {loading && (
-          <div className="bg-white rounded-2xl shadow-lg p-20 text-center">
-            <p className="text-2xl text-gray-500">Loading property...</p>
+      <main className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-10">
+        {!property && !error && (
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 w-1/2 rounded bg-gray-200" />
+            <div className="h-4 w-1/3 rounded bg-gray-200" />
+            <div className="h-64 rounded-2xl bg-gray-200 md:h-[420px]" />
           </div>
         )}
 
-        {!loading && error && (
-          <div className="bg-white rounded-2xl shadow-lg p-20 text-center">
-            <h2 className="text-3xl font-bold text-gray-400">{error}</h2>
-            <button
-              onClick={() => router.back()}
-              className="mt-6 bg-yellow-400 hover:bg-yellow-500 text-black font-bold px-8 py-3 rounded-xl"
-            >
-              Go back
+        {error && (
+          <div className="rounded-2xl bg-white p-12 text-center shadow-lg md:p-20">
+            <h1 className="text-2xl font-bold text-gray-500 md:text-3xl">{error}</h1>
+            <button onClick={() => router.push("/")} className="mt-6 rounded-xl bg-yellow-400 px-8 py-3 font-bold text-black hover:bg-yellow-500">
+              Browse properties
             </button>
           </div>
         )}
 
-        {!loading && property && (
+        {property && derived && (
           <>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              {property.property_name}
-            </h1>
-
-            <div className="grid grid-cols-12 gap-6 items-start">
-              <div className="col-span-5">
-                <PropertyGallery images={property.images} />
-              </div>
-
-              <div className="col-span-3">
-                <h2 className="text-lg font-bold text-gray-800 mb-4">Amenities</h2>
-                <div className="flex flex-wrap gap-2">
-                  {property.amenities.length > 0 ? (
-                    property.amenities.map((a) => (
-                      <AmenityPill key={a.amenity_id} name={facilityLabel(a.name)} />
-                    ))
-                  ) : (
-                    <p className="text-gray-400 text-sm">No amenities listed</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="col-span-4 h-full">
-                <MapPlaceholder
-                  address={`${property.address}, ${property.city}, ${property.country}`}
-                />
+            <div className="mb-5">
+              <p className="text-sm font-semibold uppercase tracking-wide text-yellow-600">{propertyTypeLabel(property.property_type)}</p>
+              <h1 className="mt-1 text-2xl font-bold text-gray-900 md:text-3xl">{property.property_name}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
+                <span className="inline-flex items-center gap-1"><PinIcon /> {derived.locationLine}</span>
+                {property.review_count > 0 && (
+                  <span>
+                    ★ <strong className="text-gray-900">{Number(property.avg_rating).toFixed(1)}</strong> · {property.review_count} review
+                    {property.review_count === 1 ? "" : "s"}
+                  </span>
+                )}
+                {property.latitude !== null && (
+                  <a href="#location" className="font-semibold text-gray-900 underline">Show on map</a>
+                )}
               </div>
             </div>
 
-            <BookingFilter
-              guests={guests}
-              setGuests={setGuests}
-              checkIn={checkIn}
-              setCheckIn={setCheckIn}
-              checkOut={checkOut}
-              setCheckOut={setCheckOut}
-            />
+            <PropertyGallery images={property.images} name={property.property_name} />
 
-            {property.room_types.some((r) => r.non_resident_price !== null) && (
-              <ResidencyToggle residency={residency} setResidency={setResidency} />
-            )}
+            <div className="mt-8 grid gap-8 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                {property.description && (
+                  <Section title="About this place">
+                    <About text={property.description} />
+                  </Section>
+                )}
 
-            <RoomsTable
-              rooms={property.room_types}
-              guests={guests}
-              residency={residency}
-              onBook={handleBook}
-            />
+                <Section title="Facilities">
+                  <Facilities keys={property.amenities.map((a) => a.name)} />
+                </Section>
+
+                {property.room_types.length > 0 ? (
+                  <Section id="rooms" title="Rooms">
+                    {!datesKey && <p className="mb-4 text-sm text-gray-600">Add your dates to see what&apos;s available.</p>}
+                    <div className="space-y-4">
+                      {property.room_types.map((room) => (
+                        <RoomTypeCard
+                          key={room.room_type_id}
+                          room={room}
+                          residency={residency}
+                          guests={effectiveGuests}
+                          nights={nights}
+                          available={available ? (available[room.room_type_id] ?? 0) : undefined}
+                          onSelect={handleSelect}
+                        />
+                      ))}
+                    </div>
+                  </Section>
+                ) : (
+                  <Section id="rooms" title="Bookings">
+                    <p className="text-gray-700">This venue doesn&apos;t take room bookings on Tusha yet. Contact the property to make arrangements.</p>
+                  </Section>
+                )}
+
+                <Section id="location" title="Location">
+                  <Location property={property} locationLine={derived.locationLine} />
+                </Section>
+
+                <Section title="Policies">
+                  <Policies property={property} />
+                </Section>
+              </div>
+
+              <aside className="order-first lg:order-none">
+                <div className="lg:sticky lg:top-6">
+                  <BookingPanel
+                    property={property}
+                    fromPrice={fromPrice}
+                    checkIn={checkIn}
+                    setCheckIn={setDate(setCheckIn)}
+                    checkOut={checkOut}
+                    setCheckOut={setDate(setCheckOut)}
+                    guests={effectiveGuests}
+                    setGuests={setGuests}
+                    maxGuests={derived.maxGuests}
+                    residency={residency}
+                    setResidency={setResidency}
+                    showResidency={derived.showResidency}
+                    dateHint={dateHint}
+                    checkInRef={checkInRef}
+                    onSeeRooms={scrollToRooms}
+                  />
+                </div>
+              </aside>
+            </div>
           </>
         )}
-      </div>
+      </main>
     </div>
   );
 }
