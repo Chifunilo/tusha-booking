@@ -31,10 +31,14 @@ export default function BookingHeader({
   };
 
   const handleProfileClick = () => {
-    if (isAuthenticated) {
-      router.push('/profile-page');
-    } else {
+    if (!isAuthenticated) {
       router.push('/login');
+    } else if (user?.user_type === 'admin') {
+      router.push('/admin');
+    } else if (user?.user_type === 'business') {
+      router.push('/business-dashboard');
+    } else {
+      router.push('/profile-page');
     }
   };
 

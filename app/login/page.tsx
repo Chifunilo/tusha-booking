@@ -45,7 +45,9 @@ export default function LogInPage() {
         login(data.user);
         
         // Redirect based on user type
-        if (data.user.user_type === 'business') {
+        if (data.user.user_type === 'admin') {
+          router.push('/admin');
+        } else if (data.user.user_type === 'business') {
           router.push('/business-dashboard');
         } else {
           router.push('/customer-home'); // Changed from /dashboard to /customer-home

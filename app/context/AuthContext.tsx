@@ -11,7 +11,7 @@ interface User {
   last_name: string;
   email: string;
   phone: string;
-  user_type: 'customer' | 'business';
+  user_type: 'customer' | 'business' | 'admin';
   profile_image?: string;
   businessName?: string;
   gender?: string;
@@ -22,7 +22,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   login: (userData: User) => void;
-  logout: () => Promise<void>;
+  logout: (redirectTo?: string) => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
 }
 
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('user', JSON.stringify(userData));
   };
 
-  const logout = async () => {
+  const logout = async (redirectTo: string = '/login') => {
     try {
       await fetch(`${API_URL}/api/logout`, {
         method: 'POST',
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('user');
-    router.push('/login');
+    router.push(redirectTo);
   };
 
   const updateUser = (userData: Partial<User>) => {

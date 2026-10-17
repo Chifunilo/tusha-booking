@@ -12,6 +12,13 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
 
   if (pathname.startsWith('/admin')) {
+    // The login page itself must stay reachable by anyone — it's how an admin
+    // authenticates in the first place. Everything else under /admin requires
+    // an existing admin session.
+    if (pathname === '/admin/login') {
+      return NextResponse.next();
+    }
+
     const session = await getSession(token);
 
     // A non-admin (including a logged-out visitor) gets a 404, not a redirect
