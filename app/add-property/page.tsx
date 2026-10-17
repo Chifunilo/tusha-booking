@@ -26,8 +26,6 @@ interface FormErrors {
 
 export default function AddProperty() {
   const router = useRouter();
-  const [userId, setUserId] = useState<number | null>(null);
-  const [businessId, setBusinessId] = useState<number | null>(null);
   const [formData, setFormData] = useState<PropertyFormData>({
     propertyName: '',
     addressLine1: '',
@@ -58,24 +56,8 @@ export default function AddProperty() {
     const userData = JSON.parse(storedUser);
     if (userData.user_type !== 'business') {
       router.push('/dashboard');
-      return;
     }
-
-    setUserId(userData.user_id);
-    fetchBusinessId(userData.user_id);
   }, [router]);
-
-  const fetchBusinessId = async (userId: number) => {
-    try {
-      const response = await fetch(`${API_URL}/api/business/${userId}`);
-      const data = await response.json();
-      if (response.ok) {
-        setBusinessId(data.business.business_id);
-      }
-    } catch (error) {
-      console.error('Error fetching business:', error);
-    }
-  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -126,7 +108,7 @@ export default function AddProperty() {
   const handleSubmit = async (e: React.FormEvent) => {
      e.preventDefault();
 
-     if (!validateForm() || !businessId) {
+     if (!validateForm()) {
        alert('Please fill in all required fields');
        return;
      }
@@ -166,7 +148,6 @@ export default function AddProperty() {
            'Content-Type': 'application/json',
          },
          body: JSON.stringify({
-           businessId: businessId,
            propertyName: formData.propertyName,
            propertyType: formData.propertyType,
            addressLine1: formData.addressLine1,

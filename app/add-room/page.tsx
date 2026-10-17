@@ -70,7 +70,7 @@ export default function AddRoom() {
 
   const fetchProperties = async (userId: number) => {
     try {
-      const response = await fetch(`${API_URL}/api/properties/user/${userId}`);
+      const response = await fetch(`${API_URL}/api/properties/user/${userId}`, { credentials: 'include' });
       const data = await response.json();
       if (response.ok) {
         setProperties(data.properties || []);
