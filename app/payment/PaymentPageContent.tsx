@@ -11,7 +11,8 @@ export default function PaymentPage() {
   
   // Get booking details from URL params
   const propertyId = searchParams.get('propertyId');
-  const roomType = searchParams.get('roomType');
+  const roomTypeId = searchParams.get('roomTypeId');
+  const residency = searchParams.get('residency') === 'non_resident' ? 'non_resident' : 'resident';
   const guests = searchParams.get('guests');
   const checkIn = searchParams.get('checkIn');
   const checkOut = searchParams.get('checkOut');
@@ -114,7 +115,8 @@ export default function PaymentPage() {
         },
         body: JSON.stringify({
           propertyId,
-          roomType,
+          roomTypeId,
+          residency,
           checkInDate: checkIn,
           checkOutDate: checkOut,
           numGuests: guests,

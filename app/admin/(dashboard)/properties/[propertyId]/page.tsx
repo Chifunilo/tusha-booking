@@ -6,6 +6,7 @@ import { motion } from 'motion/react';
 import { ArrowLeft, Check, X, MessageSquare, Ban } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 import { fadeInVariants, staggerContainerVariants } from '@/lib/motion';
+import { formatZMW, mealPlanLabel } from '@/lib/roomTypes';
 
 interface PropertyDetail {
   property_id: number;
@@ -32,7 +33,18 @@ interface PropertyDetail {
     created_at: string;
     business_documents: { document_id: number; doc_type: string; status: string; uploaded_at: string }[];
   };
-  rooms: { room_id: number; room_number: string; room_type: string; base_price: string; is_active: boolean }[];
+  room_types: {
+    room_type_id: number;
+    name: string;
+    max_occupancy: number;
+    num_beds: number;
+    bed_type: string | null;
+    meal_plan: string;
+    price: string;
+    non_resident_price: string | null;
+    is_active: boolean;
+    unit_count: number;
+  }[];
 }
 
 type ActionStatus = 'approved' | 'rejected' | 'changes_requested' | 'suspended';
@@ -158,26 +170,41 @@ export default function AdminPropertyDetailPage() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-xl shadow-black/5 ring-1 ring-black/5 p-6">
-            <h2 className="text-lg font-semibold tracking-tight mb-4">Rooms ({property.rooms.length})</h2>
-            {property.rooms.length === 0 ? (
+            <h2 className="text-lg font-semibold tracking-tight mb-4">
+              Rooms ({property.room_types.reduce((sum, rt) => sum + rt.unit_count, 0)})
+            </h2>
+            {property.room_types.length === 0 ? (
               <p className="text-sm text-gray-400">No rooms added yet.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-left text-gray-500">
-                    <th className="py-2">Room</th>
-                    <th className="py-2">Type</th>
+                    <th className="py-2">Room type</th>
+                    <th className="py-2">Qty</th>
+                    <th className="py-2">Sleeps</th>
+                    <th className="py-2">Meals</th>
                     <th className="py-2">Price</th>
-                    <th className="py-2">Active</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {property.rooms.map((room) => (
-                    <tr key={room.room_id} className="border-b border-gray-100 last:border-0">
-                      <td className="py-2">{room.room_number}</td>
-                      <td className="py-2">{room.room_type}</td>
-                      <td className="py-2">ZMW{room.base_price}</td>
-                      <td className="py-2">{room.is_active ? 'Yes' : 'No'}</td>
+                  {property.room_types.map((rt) => (
+                    <tr key={rt.room_type_id} className={`border-b border-gray-100 last:border-0 ${rt.is_active ? '' : 'text-gray-400'}`}>
+                      <td className="py-2">
+                        {rt.name}
+                        {!rt.is_active && ' (hidden)'}
+                        <span className="block text-xs text-gray-500">
+                          {rt.num_beds} bed{rt.num_beds === 1 ? '' : 's'}{rt.bed_type ? ` · ${rt.bed_type}` : ''}
+                        </span>
+                      </td>
+                      <td className="py-2">{rt.unit_count}</td>
+                      <td className="py-2">{rt.max_occupancy}</td>
+                      <td className="py-2">{mealPlanLabel(rt.meal_plan)}</td>
+                      <td className="py-2">
+                        {formatZMW(rt.price)}
+                        {rt.non_resident_price && (
+                          <span className="block text-xs text-gray-500">Non-resident {formatZMW(rt.non_resident_price)}</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

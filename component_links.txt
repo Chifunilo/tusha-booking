@@ -1,0 +1,7 @@
+❯ card component(for parts like the property cards): npx shadcn@latest add https://registry.watermelon.sh/r/hero-19.json
+credit card number field: npx shadcn@latest add https://registry.watermelon.sh/r/input-mask-2.json
+expiry date: npx shadcn@latest add https://registry.watermelon.sh/r/input-mask-5.json
+cvc field: npx shadcn@latest add https://registry.watermelon.sh/r/input-mask-3.json
+table like the ones on the business dashboard: npx shadcn@latest add https://registry.watermelon.sh/r/table-12.json
+footer:npx shadcn@latest add https://registry.watermelon.sh/r/footer-15.json
+business dashbaord(lets try this but while keeping our colors not the blac the mockup has): npx shadcn@latest add https://registry.watermelon.sh/r/medesk-dashboard.json

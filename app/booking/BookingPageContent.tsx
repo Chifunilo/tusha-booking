@@ -4,8 +4,13 @@ import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import BookingHeader from '@/components/customer/BookingHeader';
 import { API_URL } from '@/lib/api';
+import { mealPlanLabel } from '@/lib/roomTypes';
 
 interface Quote {
+  roomTypeName: string;
+  mealPlan: string;
+  residency: 'resident' | 'non_resident';
+  hasNonResidentRate: boolean;
   nights: number;
   pricePerNight: number;
   basePrice: number;
@@ -34,7 +39,8 @@ export default function BookingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const propertyId = searchParams.get('propertyId');
-  const roomType = searchParams.get('roomType');
+  const roomTypeId = searchParams.get('roomTypeId');
+  const residency = searchParams.get('residency') === 'non_resident' ? 'non_resident' : 'resident';
   const guests = searchParams.get('guests');
   const checkIn = searchParams.get('checkIn');
   const checkOut = searchParams.get('checkOut');
@@ -53,12 +59,13 @@ export default function BookingPage() {
   const [quoteError, setQuoteError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!propertyId || !roomType || !checkIn || !checkOut) {
+    if (!propertyId || !roomTypeId || !checkIn || !checkOut) {
       setQuoteLoading(false);
       return;
     }
 
-    const params = new URLSearchParams({ propertyId, roomType, checkIn, checkOut });
+    const params = new URLSearchParams({ propertyId, roomTypeId, checkIn, checkOut, residency });
+    if (guests) params.set('guests', guests);
 
     setQuoteLoading(true);
     setQuoteError(null);
@@ -71,7 +78,7 @@ export default function BookingPage() {
       })
       .catch((err) => setQuoteError(err.message))
       .finally(() => setQuoteLoading(false));
-  }, [propertyId, roomType, checkIn, checkOut]);
+  }, [propertyId, roomTypeId, checkIn, checkOut, residency, guests]);
 
   const validateForm = () => {
     if (!bookingDetails.firstName.trim()) {
@@ -98,7 +105,8 @@ export default function BookingPage() {
 
     const params = new URLSearchParams({
       propertyId: propertyId || '',
-      roomType: roomType || '',
+      roomTypeId: roomTypeId || '',
+      residency,
       guests: guests || '',
       checkIn: checkIn || '',
       checkOut: checkOut || '',
@@ -150,8 +158,14 @@ export default function BookingPage() {
               <div className="p-6">
                 <h3 className="text-xl font-bold mb-3">Stay information</h3>
                 <p className="text-lg text-gray-700">
-                  {quote ? `${quote.nights} Night${quote.nights === 1 ? '' : 's'}` : '—'}, {roomType || 'Room'}, {guests || '—'} People
+                  {quote ? `${quote.nights} Night${quote.nights === 1 ? '' : 's'}` : '—'}, {quote?.roomTypeName ?? 'Room'}, {guests || '—'} People
                 </p>
+                {quote && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    {mealPlanLabel(quote.mealPlan)}
+                    {quote.hasNonResidentRate && ` · ${quote.residency === 'non_resident' ? 'Non-resident' : 'Zambian resident'} rate`}
+                  </p>
+                )}
               </div>
 
               {quoteLoading && (

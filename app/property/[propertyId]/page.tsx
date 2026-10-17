@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { HeroSection } from "@/components/customer";
 import { API_URL } from "@/lib/api";
+import { mealPlanLabel, Residency } from "@/lib/roomTypes";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,11 +15,21 @@ interface Amenity {
 
 interface RoomType {
   room_type_id: number;
-  type_name: string;
-  max_guests: number;
-  amenities_count: number;
-  available_count: number;
-  price_per_night: number;
+  name: string;
+  description: string | null;
+  max_occupancy: number;
+  num_beds: number;
+  bed_type: string | null;
+  amenities: string[];
+  images: string[];
+  meal_plan: string;
+  price: number;
+  non_resident_price: number | null;
+  unit_count: number;
+}
+
+function priceFor(room: RoomType, residency: Residency): number {
+  return residency === "non_resident" && room.non_resident_price !== null ? room.non_resident_price : room.price;
 }
 
 interface PropertyDetail {
@@ -213,28 +224,58 @@ function BookingFilter({
   );
 }
 
+/** Resident / non-resident rate switch — only shown when some room type prices them differently */
+function ResidencyToggle({ residency, setResidency }: { residency: Residency; setResidency: (r: Residency) => void }) {
+  const options: { value: Residency; label: string }[] = [
+    { value: "resident", label: "Zambian resident" },
+    { value: "non_resident", label: "Non-resident" },
+  ];
+
+  return (
+    <div className="mt-6 flex flex-wrap items-center gap-3">
+      <span className="text-sm text-gray-600">Rates shown for:</span>
+      <div className="inline-flex rounded-xl border-2 border-gray-800 p-1">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            onClick={() => setResidency(o.value)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+              residency === o.value ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <span className="text-xs text-gray-500">You may be asked for an NRC or passport at check-in.</span>
+    </div>
+  );
+}
+
 /** Rooms table */
 function RoomsTable({
   rooms,
   guests,
+  residency,
   onBook,
 }: {
   rooms: RoomType[];
   guests: number;
+  residency: Residency;
   onBook: (room: RoomType) => void;
 }) {
-  const filtered = rooms.filter((r) => r.max_guests >= guests);
+  const filtered = rooms.filter((r) => r.max_occupancy >= guests);
 
   return (
-    <div className="mt-10 rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+    <div className="mt-6 rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-gray-900 text-white">
             <th className="text-left px-6 py-4 font-semibold">Room Type</th>
-            <th className="text-center px-6 py-4 font-semibold">Max Guests</th>
-            <th className="text-center px-6 py-4 font-semibold">Amenities</th>
-            <th className="text-center px-6 py-4 font-semibold">Available</th>
-            <th className="text-center px-6 py-4 font-semibold">Price</th>
+            <th className="text-center px-6 py-4 font-semibold">Sleeps</th>
+            <th className="text-center px-6 py-4 font-semibold">Meals</th>
+            <th className="text-center px-6 py-4 font-semibold">Rooms</th>
+            <th className="text-center px-6 py-4 font-semibold">Price / night</th>
             <th className="px-6 py-4"></th>
           </tr>
         </thead>
@@ -242,7 +283,7 @@ function RoomsTable({
           {filtered.length === 0 ? (
             <tr>
               <td colSpan={6} className="text-center py-12 text-gray-400">
-                No rooms available for {guests} guest{guests > 1 ? "s" : ""}
+                No rooms sleep {guests} guest{guests > 1 ? "s" : ""}
               </td>
             </tr>
           ) : (
@@ -251,24 +292,26 @@ function RoomsTable({
                 key={room.room_type_id}
                 className={`border-t border-gray-100 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-yellow-50 transition-colors duration-150`}
               >
-                <td className="px-6 py-4 font-medium text-gray-800">{room.type_name}</td>
-                <td className="px-6 py-4 text-center text-gray-600">{room.max_guests}</td>
-                <td className="px-6 py-4 text-center text-gray-600">{room.amenities_count}</td>
-                <td className="px-6 py-4 text-center text-gray-600">{room.available_count}</td>
+                <td className="px-6 py-4">
+                  <p className="font-medium text-gray-800">{room.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {room.num_beds} bed{room.num_beds === 1 ? "" : "s"}
+                    {room.bed_type ? ` · ${room.bed_type}` : ""}
+                    {room.amenities.length > 0 ? ` · ${room.amenities.join(", ")}` : ""}
+                  </p>
+                </td>
+                <td className="px-6 py-4 text-center text-gray-600">{room.max_occupancy}</td>
+                <td className="px-6 py-4 text-center text-gray-600">{mealPlanLabel(room.meal_plan)}</td>
+                <td className="px-6 py-4 text-center text-gray-600">{room.unit_count}</td>
                 <td className="px-6 py-4 text-center font-semibold text-gray-800">
-                  {formatCurrency(room.price_per_night)}
+                  {formatCurrency(priceFor(room, residency))}
                 </td>
                 <td className="px-6 py-4 text-center">
                   <button
                     onClick={() => onBook(room)}
-                    disabled={room.available_count === 0}
-                    className={`px-5 py-2 rounded-xl font-bold text-sm transition-colors duration-200 ${
-                      room.available_count === 0
-                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                        : "bg-yellow-400 hover:bg-yellow-500 text-black cursor-pointer"
-                    }`}
+                    className="px-5 py-2 rounded-xl font-bold text-sm transition-colors duration-200 bg-yellow-400 hover:bg-yellow-500 text-black cursor-pointer"
                   >
-                    {room.available_count === 0 ? "Full" : "Book"}
+                    Book
                   </button>
                 </td>
               </tr>
@@ -293,6 +336,7 @@ export default function PropertyDetail({ params }: { params: Promise<{ propertyI
   const [guests, setGuests] = useState(1);
   const [checkIn, setCheckIn] = useState<string | null>(null);
   const [checkOut, setCheckOut] = useState<string | null>(null);
+  const [residency, setResidency] = useState<Residency>("resident");
 
   const [activeTab, setActiveTab] = useState<"home" | "events" | "popular">("home");
 
@@ -341,7 +385,7 @@ export default function PropertyDetail({ params }: { params: Promise<{ propertyI
       return;
     }
     router.push(
-      `/booking?propertyId=${propertyId}&roomType=${encodeURIComponent(room.type_name)}&guests=${guests}&checkIn=${checkIn}&checkOut=${checkOut}`
+      `/booking?propertyId=${propertyId}&roomTypeId=${room.room_type_id}&residency=${residency}&guests=${guests}&checkIn=${checkIn}&checkOut=${checkOut}`
     );
   };
 
@@ -419,9 +463,14 @@ export default function PropertyDetail({ params }: { params: Promise<{ propertyI
               setCheckOut={setCheckOut}
             />
 
+            {property.room_types.some((r) => r.non_resident_price !== null) && (
+              <ResidencyToggle residency={residency} setResidency={setResidency} />
+            )}
+
             <RoomsTable
               rooms={property.room_types}
               guests={guests}
+              residency={residency}
               onBook={handleBook}
             />
           </>

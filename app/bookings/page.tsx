@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import BookingHeader from '@/components/customer/BookingHeader';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '@/lib/api';
+import { mealPlanLabel } from '@/lib/roomTypes';
 
 interface Booking {
   booking_id: number;
@@ -19,6 +20,8 @@ interface Booking {
   property_id: number;
   property_name: string;
   room_number: string | null;
+  room_type_name: string | null;
+  meal_plan: string | null;
 }
 
 // dateStr comes back as an ISO instant (midnight UTC) for what is really a
@@ -86,7 +89,8 @@ export default function MyBookingsPage() {
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">{booking.property_name}</h2>
                   <p className="text-sm text-gray-500 mt-1">
-                    {booking.room_number ? `Room ${booking.room_number} · ` : ''}
+                    {booking.room_type_name ? `${booking.room_type_name} · ` : ''}
+                    {booking.meal_plan ? `${mealPlanLabel(booking.meal_plan)} · ` : ''}
                     {booking.num_guests ?? '—'} guest{booking.num_guests === 1 ? '' : 's'}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
