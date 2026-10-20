@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import BookingHeader from '@/components/customer/BookingHeader';
+import PaymentCardFields from '@/components/payment/PaymentCardFields';
 import { API_URL } from '@/lib/api';
 
 export default function PaymentPage() {
@@ -33,49 +34,6 @@ export default function PaymentPage() {
     expirationDate: '',
     cvc: '',
   });
-
-  // Format card number with spaces (XXXX XXXX XXXX XXXX)
-  const formatCardNumber = (value: string) => {
-    const cleaned = value.replace(/\s/g, '');
-    const chunks = cleaned.match(/.{1,4}/g);
-    return chunks ? chunks.join(' ') : cleaned;
-  };
-
-  // Format expiration date (MM/YY)
-  const formatExpirationDate = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
-    if (cleaned.length >= 2) {
-      return cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4);
-    }
-    return cleaned;
-  };
-
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\s/g, '');
-    if (value.length <= 16 && /^\d*$/.test(value)) {
-      setPaymentDetails({
-        ...paymentDetails,
-        cardNumber: formatCardNumber(value),
-      });
-    }
-  };
-
-  const handleExpirationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '');
-    if (value.length <= 4) {
-      setPaymentDetails({
-        ...paymentDetails,
-        expirationDate: formatExpirationDate(value),
-      });
-    }
-  };
-
-  const handleCvcChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value.length <= 3 && /^\d*$/.test(value)) {
-      setPaymentDetails({ ...paymentDetails, cvc: value });
-    }
-  };
 
   const validateForm = () => {
     if (!paymentDetails.cardholderName.trim()) {
@@ -211,50 +169,14 @@ export default function PaymentPage() {
             />
           </div>
 
-          {/* Card Number */}
-          <div className="mb-8">
-            <label className="block text-lg font-semibold mb-3">
-              Card Number
-            </label>
-            <input
-              type="text"
-              value={paymentDetails.cardNumber}
-              onChange={handleCardNumberChange}
-              className="w-full px-6 py-4 border-2 border-gray-300 rounded-xl text-lg focus:border-yellow-400 focus:outline-none"
-              placeholder="1234 5678 9012 3456"
-              maxLength={19}
-            />
-          </div>
-
-          {/* Expiration Date and CVC */}
-          <div className="grid grid-cols-2 gap-6 mb-12">
-            <div>
-              <label className="block text-lg font-semibold mb-3">
-                Expiration Date
-              </label>
-              <input
-                type="text"
-                value={paymentDetails.expirationDate}
-                onChange={handleExpirationChange}
-                className="w-full px-6 py-4 border-2 border-gray-300 rounded-xl text-lg focus:border-yellow-400 focus:outline-none"
-                placeholder="MM/YY"
-                maxLength={5}
-              />
-            </div>
-            <div>
-              <label className="block text-lg font-semibold mb-3">
-                CVC
-              </label>
-              <input
-                type="text"
-                value={paymentDetails.cvc}
-                onChange={handleCvcChange}
-                className="w-full px-6 py-4 border-2 border-gray-300 rounded-xl text-lg focus:border-yellow-400 focus:outline-none"
-                placeholder="123"
-                maxLength={3}
-              />
-            </div>
-          </div>
+          <PaymentCardFields
+            cardNumber={paymentDetails.cardNumber}
+            expirationDate={paymentDetails.expirationDate}
+            cvc={paymentDetails.cvc}
+            onCardNumberChange={(value) => setPaymentDetails({ ...paymentDetails, cardNumber: value })}
+            onExpirationDateChange={(value) => setPaymentDetails({ ...paymentDetails, expirationDate: value })}
+            onCvcChange={(value) => setPaymentDetails({ ...paymentDetails, cvc: value })}
+          />
 
           {/* Complete Booking Button */}
           <div className="flex justify-end">

@@ -2,11 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { motion } from 'motion/react';
-import { ArrowLeft, Check, X, MessageSquare, Ban } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ArrowLeft, Check, X, MessageSquare, Ban, Loader2, CheckCircle2 } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 import { fadeInVariants, staggerContainerVariants } from '@/lib/motion';
-import { formatZMW, mealPlanLabel } from '@/lib/roomTypes';
+import { formatCurrency, mealPlanLabel } from '@/lib/roomTypes';
 
 interface PropertyDetail {
   property_id: number;
@@ -49,6 +49,21 @@ interface PropertyDetail {
 
 type ActionStatus = 'approved' | 'rejected' | 'changes_requested' | 'suspended';
 
+const STATUS_BADGE_CLASS: Record<string, string> = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  approved: 'bg-green-100 text-green-800',
+  rejected: 'bg-red-100 text-red-800',
+  changes_requested: 'bg-blue-100 text-blue-800',
+  suspended: 'bg-gray-200 text-gray-700',
+};
+
+const ACTION_LABELS: Record<ActionStatus, string> = {
+  approved: 'Approved',
+  rejected: 'Rejected',
+  changes_requested: 'Changes requested',
+  suspended: 'Suspended',
+};
+
 function accountAge(createdAt: string): string {
   const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
   if (days < 1) return 'today';
@@ -66,17 +81,21 @@ export default function AdminPropertyDetailPage() {
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState('');
   const [pendingAction, setPendingAction] = useState<ActionStatus | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<ActionStatus | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const submitting = loadingAction !== null;
 
   const fetchProperty = () => {
-    fetch(`${API_URL}/api/admin/properties/${propertyId}`, { credentials: 'include' })
+    return fetch(`${API_URL}/api/admin/properties/${propertyId}`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setProperty(data?.property ?? null))
       .finally(() => setLoading(false));
   };
 
-  useEffect(fetchProperty, [propertyId]);
+  useEffect(() => {
+    fetchProperty();
+  }, [propertyId]);
 
   const needsNote = pendingAction === 'rejected' || pendingAction === 'changes_requested';
 
@@ -87,8 +106,9 @@ export default function AdminPropertyDetailPage() {
       return;
     }
 
-    setSubmitting(true);
+    setLoadingAction(status);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       const response = await fetch(`${API_URL}/api/admin/properties/${propertyId}/status`, {
@@ -106,11 +126,13 @@ export default function AdminPropertyDetailPage() {
 
       setNote('');
       setPendingAction(null);
-      fetchProperty();
+      await fetchProperty();
+      setSuccessMessage(ACTION_LABELS[status]);
+      setTimeout(() => setSuccessMessage((msg) => (msg === ACTION_LABELS[status] ? null : msg)), 3000);
     } catch {
       setError('Failed to update property status');
     } finally {
-      setSubmitting(false);
+      setLoadingAction(null);
     }
   };
 
@@ -134,7 +156,7 @@ export default function AdminPropertyDetailPage() {
               {property.city}, {property.country} &middot; {property.property_type.replace('_', ' ')}
             </p>
           </div>
-          <span className="inline-flex rounded-full bg-yellow-100 px-4 py-1.5 text-sm font-medium text-yellow-800 capitalize">
+          <span className={`inline-flex rounded-full px-4 py-1.5 text-sm font-medium capitalize ${STATUS_BADGE_CLASS[property.approval_status] ?? 'bg-gray-100 text-gray-700'}`}>
             {property.approval_status.replace('_', ' ')}
           </span>
         </div>
@@ -200,9 +222,9 @@ export default function AdminPropertyDetailPage() {
                       <td className="py-2">{rt.max_occupancy}</td>
                       <td className="py-2">{mealPlanLabel(rt.meal_plan)}</td>
                       <td className="py-2">
-                        {formatZMW(rt.price)}
+                        {formatCurrency(rt.price)}
                         {rt.non_resident_price && (
-                          <span className="block text-xs text-gray-500">Non-resident {formatZMW(rt.non_resident_price)}</span>
+                          <span className="block text-xs text-gray-500">Non-resident {formatCurrency(rt.non_resident_price)}</span>
                         )}
                       </td>
                     </tr>
@@ -240,6 +262,18 @@ export default function AdminPropertyDetailPage() {
 
           <div className="bg-white rounded-2xl shadow-xl shadow-black/5 ring-1 ring-black/5 p-6">
             <h2 className="text-lg font-semibold tracking-tight mb-3">Review</h2>
+            <AnimatePresence>
+              {successMessage && (
+                <motion.p
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="mb-3 flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700"
+                >
+                  <CheckCircle2 size={16} /> {successMessage}
+                </motion.p>
+              )}
+            </AnimatePresence>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -254,28 +288,32 @@ export default function AdminPropertyDetailPage() {
                 onClick={() => submitAction('approved')}
                 className="inline-flex items-center justify-center gap-1.5 rounded-full bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
               >
-                <Check size={16} /> Approve
+                {loadingAction === 'approved' ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                {loadingAction === 'approved' ? 'Approving...' : 'Approve'}
               </button>
               <button
                 disabled={submitting}
                 onClick={() => submitAction('rejected')}
                 className="inline-flex items-center justify-center gap-1.5 rounded-full bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
               >
-                <X size={16} /> Reject
+                {loadingAction === 'rejected' ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />}
+                {loadingAction === 'rejected' ? 'Rejecting...' : 'Reject'}
               </button>
               <button
                 disabled={submitting}
                 onClick={() => submitAction('changes_requested')}
                 className="inline-flex items-center justify-center gap-1.5 rounded-full bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
               >
-                <MessageSquare size={16} /> Request changes
+                {loadingAction === 'changes_requested' ? <Loader2 size={16} className="animate-spin" /> : <MessageSquare size={16} />}
+                {loadingAction === 'changes_requested' ? 'Submitting...' : 'Request changes'}
               </button>
               <button
                 disabled={submitting}
                 onClick={() => submitAction('suspended')}
                 className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gray-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
               >
-                <Ban size={16} /> Suspend
+                {loadingAction === 'suspended' ? <Loader2 size={16} className="animate-spin" /> : <Ban size={16} />}
+                {loadingAction === 'suspended' ? 'Suspending...' : 'Suspend'}
               </button>
             </div>
           </div>

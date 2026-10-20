@@ -670,6 +670,11 @@ export default function PropertyWizard({ initialPropertyId }: { initialPropertyI
                           Fix
                         </button>
                       )}
+                      {!item.done && item.key === 'business_verification' && (
+                        <a href="/business-dashboard/verification" className="text-sm font-semibold underline">
+                          Verify business
+                        </a>
+                      )}
                     </li>
                   ))}
                 </ul>

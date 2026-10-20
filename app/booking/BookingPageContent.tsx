@@ -32,7 +32,7 @@ function formatDate(dateStr: string | null): string {
 }
 
 function formatCurrency(amount: number): string {
-  return `ZMW ${amount.toLocaleString()}`;
+  return `K${amount.toLocaleString()}`;
 }
 
 export default function BookingPage() {

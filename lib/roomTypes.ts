@@ -12,6 +12,6 @@ export function mealPlanLabel(value: string | null | undefined): string {
   return MEAL_PLANS.find((m) => m.value === value)?.label ?? 'Room only';
 }
 
-export function formatZMW(amount: number | string): string {
-  return `ZMW ${Number(amount).toLocaleString()}`;
+export function formatCurrency(amount: number | string): string {
+  return `K${Number(amount).toLocaleString()}`;
 }

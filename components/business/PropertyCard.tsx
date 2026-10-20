@@ -11,9 +11,16 @@ interface PropertyCardProps {
     images: string[];
     property_type: string;
     approval_status?: string;
+    approval_note?: string | null;
   };
   onClick: () => void;
 }
+
+const NOTE_BOX_CLASS: Record<string, string> = {
+  rejected: 'bg-red-50 text-red-700 ring-1 ring-red-200',
+  changes_requested: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
+  suspended: 'bg-gray-50 text-gray-700 ring-1 ring-gray-200',
+};
 
 const STATUS_BADGES: Record<string, { label: string; className: string }> = {
   draft: { label: 'Draft', className: 'bg-gray-100 text-gray-700' },
@@ -49,6 +56,12 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick }) => {
         <p className="text-gray-500 text-sm">{[property.city, property.country].filter(Boolean).join(', ')}</p>
         <p className="text-gray-700 text-sm">{property.amenities.map(facilityLabel).join(', ')}</p>
         <p className="text-gray-500 text-sm capitalize">{property.property_type.replace('_', ' ')}</p>
+        {property.approval_note && NOTE_BOX_CLASS[property.approval_status ?? ''] && (
+          <p className={`mt-2 rounded-lg px-3 py-2 text-xs ${NOTE_BOX_CLASS[property.approval_status ?? '']}`}>
+            <span className="font-semibold">Admin note: </span>
+            {property.approval_note}
+          </p>
+        )}
       </div>
 
       <div className="flex px-6 pb-6">

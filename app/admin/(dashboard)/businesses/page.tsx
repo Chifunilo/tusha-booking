@@ -14,6 +14,8 @@ interface AdminBusiness {
   status: string;
   tier: string;
   onboarding_source: string | null;
+  kyc_submitted_at: string | null;
+  document_count: number;
   created_at: string;
   owner_email: string;
 }
@@ -103,7 +105,16 @@ export default function AdminBusinessesPage() {
                   <td className="py-4 px-6">{business.owner_email}</td>
                   <td className="py-4 px-6">{business.city}</td>
                   <td className="py-4 px-6 capitalize">{business.business_type}</td>
-                  <td className="py-4 px-6">{new Date(business.created_at).toLocaleDateString()}</td>
+                  <td className="py-4 px-6">
+                    {business.kyc_submitted_at ? (
+                      new Date(business.kyc_submitted_at).toLocaleDateString()
+                    ) : (
+                      <span className="text-gray-400">Not yet · signed up {new Date(business.created_at).toLocaleDateString()}</span>
+                    )}
+                    <span className="block text-xs text-gray-500">
+                      {business.document_count} document{business.document_count === 1 ? '' : 's'}
+                    </span>
+                  </td>
                   <td className="py-4 px-6">
                     <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium capitalize ${statusBadgeClass[business.status] ?? 'bg-gray-100 text-gray-700'}`}>
                       {business.status.replace('_', ' ')}

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { API_URL } from '@/lib/api';
-import { MEAL_PLANS, MealPlan, formatZMW, mealPlanLabel } from '@/lib/roomTypes';
+import { MEAL_PLANS, MealPlan, formatCurrency, mealPlanLabel } from '@/lib/roomTypes';
 
 interface RoomType {
   room_type_id: number;
@@ -202,9 +202,9 @@ export default function RoomTypesManager({
                   <td className="py-4 px-6">{rt.max_occupancy}</td>
                   <td className="py-4 px-6">{mealPlanLabel(rt.meal_plan)}</td>
                   <td className="py-4 px-6">
-                    <p className="font-semibold">{formatZMW(rt.price)}</p>
+                    <p className="font-semibold">{formatCurrency(rt.price)}</p>
                     {rt.non_resident_price && (
-                      <p className="text-sm text-gray-500">Non-resident {formatZMW(rt.non_resident_price)}</p>
+                      <p className="text-sm text-gray-500">Non-resident {formatCurrency(rt.non_resident_price)}</p>
                     )}
                   </td>
                   <td className="py-4 px-6">
@@ -292,7 +292,7 @@ export default function RoomTypesManager({
           </div>
 
           <div>
-            <label className="block text-xl font-medium mb-2">Price per night (ZMW)</label>
+            <label className="block text-xl font-medium mb-2">Price per night (K)</label>
             <input type="number" min={0} step="0.01" value={form.price} onChange={(e) => set('price', e.target.value)} className={inputClass(!!errors.price)} />
             {errors.price && <p className="text-red-500 text-sm mt-1">{errors.price}</p>}
             <label className="mt-3 flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -306,7 +306,7 @@ export default function RoomTypesManager({
             </label>
             {form.hasNonResidentRate && (
               <div className="mt-3">
-                <label className="block text-sm font-medium mb-1">Non-resident price per night (ZMW)</label>
+                <label className="block text-sm font-medium mb-1">Non-resident price per night (K)</label>
                 <input type="number" min={0} step="0.01" value={form.nonResidentPrice} onChange={(e) => set('nonResidentPrice', e.target.value)} className={inputClass(!!errors.nonResidentPrice)} />
                 {errors.nonResidentPrice && <p className="text-red-500 text-sm mt-1">{errors.nonResidentPrice}</p>}
               </div>

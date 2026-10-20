@@ -6,7 +6,7 @@ import BookingHeader from "@/components/customer/BookingHeader";
 import PropertyGallery from "@/components/property/PropertyGallery";
 import RoomTypeCard, { RoomType, priceFor } from "@/components/property/RoomTypeCard";
 import { API_URL } from "@/lib/api";
-import { formatZMW, Residency } from "@/lib/roomTypes";
+import { formatCurrency, Residency } from "@/lib/roomTypes";
 import {
   CANCELLATION_POLICIES,
   FACILITY_GROUPS,
@@ -303,7 +303,7 @@ function BookingPanel({
     <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-lg">
       {fromPrice !== null && (
         <p className="text-gray-600">
-          From <span className="text-2xl font-bold text-gray-900">{formatZMW(fromPrice)}</span> / night
+          From <span className="text-2xl font-bold text-gray-900">{formatCurrency(fromPrice)}</span> / night
         </p>
       )}
 

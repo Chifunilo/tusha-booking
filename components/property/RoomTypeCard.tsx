@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Cloudinary URLs, not configured for next/image */
 
 import { useState } from "react";
-import { MEAL_PLANS, formatZMW, Residency } from "@/lib/roomTypes";
+import { MEAL_PLANS, formatCurrency, Residency } from "@/lib/roomTypes";
 
 export interface RoomType {
   room_type_id: number;
@@ -104,10 +104,10 @@ export default function RoomTypeCard({
         <div className="mt-auto flex flex-wrap items-end justify-between gap-3 border-t border-gray-100 pt-3">
           <div>
             <p className="text-xl font-bold text-gray-900">
-              {formatZMW(price)} <span className="text-sm font-normal text-gray-500">/ night</span>
+              {formatCurrency(price)} <span className="text-sm font-normal text-gray-500">/ night</span>
             </p>
             <p className="text-xs text-gray-500">
-              {nights ? `${formatZMW(price * nights)} for ${nights} night${nights === 1 ? "" : "s"} · ` : ""}
+              {nights ? `${formatCurrency(price * nights)} for ${nights} night${nights === 1 ? "" : "s"} · ` : ""}
               per room, levies added at checkout
             </p>
           </div>

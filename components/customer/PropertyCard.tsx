@@ -1,9 +1,12 @@
 import React from 'react';
+import StarRating from './StarRating';
 
 interface PropertyCardProps {
   property: {
     property_id: number;
     property_name: string;
+    description: string | null;
+    area: string | null;
     city: string;
     country: string;
     images: string[];
@@ -15,47 +18,43 @@ interface PropertyCardProps {
 }
 
 const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick }) => {
+  const location = [property.area, property.city].filter(Boolean).join(', ') || property.country;
+
   return (
-    <div
-      onClick={onClick}
-      className="bg-white rounded-3xl shadow-lg overflow-hidden cursor-pointer hover:shadow-2xl transition-all transform hover:-translate-y-1"
-    >
-      {/* Property Image - Half the card height */}
-      <div className="relative h-48">
+    <div onClick={onClick} className="group cursor-pointer h-full flex flex-col overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-black/5">
+      {/* Image */}
+      <div className="relative aspect-[4/3] overflow-hidden">
         <img
           src={property.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop'}
           alt={property.property_name}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
+        {property.review_count === 0 && (
+          <span className="absolute left-3 top-3 rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-gray-900">
+            New
+          </span>
+        )}
       </div>
 
-      {/* Property Details - Other half */}
-      <div className="p-6 h-48 flex flex-col justify-between">
-        {/* Top Section - Name and Location */}
-        <div>
-          <h3 className="text-xl font-bold mb-1">{property.property_name}</h3>
-          <p className="text-gray-600 text-sm">{property.city}, {property.country}</p>
+      {/* Details */}
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="text-xl font-bold text-gray-900">{property.property_name}</h3>
+
+        <p className="mt-2 min-h-[4.3rem] text-sm text-gray-700 leading-relaxed line-clamp-3">
+          {property.description}
+        </p>
+
+        <div className="mt-5">
+          <StarRating rating={property.avg_rating} size={24} />
         </div>
-        
-        {/* Bottom Section - Rating and Price */}
-        <div className="flex justify-between items-end">
-          {/* Rating Badge - Yellow Square */}
-          {property.review_count > 0 ? (
-            <div className="bg-yellow-400 text-black font-bold text-2xl px-4 py-3 rounded-xl w-16 h-16 flex items-center justify-center">
-              {property.avg_rating.toFixed(1)}
-            </div>
-          ) : (
-            <div className="bg-gray-300 text-gray-700 font-semibold text-sm px-4 py-3 rounded-xl">
-              New
-            </div>
-          )}
-          
-          {/* Price */}
-          <p className="text-2xl font-semibold">ZMW{property.min_price || '0'}</p>
+
+        <div className="mt-auto flex items-end justify-between gap-3 pt-4">
+          <p className="text-sm font-semibold text-gray-600 whitespace-nowrap">{location}</p>
+          <p className="text-2xl font-semibold text-gray-900 whitespace-nowrap">K{property.min_price || '0'}</p>
         </div>
       </div>
     </div>
   );
 };
 
-export default PropertyCard;
+export default PropertyCard

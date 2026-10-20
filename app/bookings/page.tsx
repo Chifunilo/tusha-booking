@@ -33,17 +33,21 @@ function formatDate(dateStr: string): string {
 }
 
 function formatCurrency(amount: string): string {
-  return `ZMW ${Number(amount).toLocaleString()}`;
+  return `K${Number(amount).toLocaleString()}`;
 }
 
 export default function MyBookingsPage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Wait for AuthContext's own localStorage check to finish — isAuthenticated
+    // starts false on every mount, even for an already-logged-in user.
+    if (authLoading) return;
+
     if (!isAuthenticated) {
       router.push('/login');
       return;
@@ -57,7 +61,7 @@ export default function MyBookingsPage() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, router]);
 
   return (
     <div className="min-h-screen bg-gray-50">

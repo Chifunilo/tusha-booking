@@ -10,7 +10,7 @@ type Section = 'personal' | 'payment' | 'preferences' | 'logout';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, isAuthenticated, logout, updateUser } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, logout, updateUser } = useAuth();
   
   const [activeSection, setActiveSection] = useState<Section>('personal');
   const [loading, setLoading] = useState(true);
@@ -30,8 +30,12 @@ export default function ProfilePage() {
 
   const [selectedLanguage, setSelectedLanguage] = useState('en');
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated. Wait for AuthContext's own
+  // localStorage check to finish first — isAuthenticated starts false on
+  // every mount, even for an already-logged-in user.
 useEffect(() => {
+  if (authLoading) return;
+
   if (!isAuthenticated) {
     router.push('/login');
   } else if (user) {
@@ -48,7 +52,7 @@ useEffect(() => {
     });
     setLoading(false);
   }
-}, [isAuthenticated, user, router]);
+}, [authLoading, isAuthenticated, user, router]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

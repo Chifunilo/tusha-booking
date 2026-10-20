@@ -2,7 +2,9 @@
 
 import { AddIcon, BedIcon, BuildingIcon } from '@/components/icons';
 import React, { useState, useEffect, useRef } from 'react';
+import VerificationBanner from '@/components/business/VerificationBanner';
 import { PropertyCard } from '@/components/business';
+import EventsManager from '@/components/business/EventsManager';
 
 import {
   LayoutDashboard,
@@ -372,6 +374,8 @@ const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
 
   return (
     <motion.div initial="hidden" animate="visible" variants={staggerContainerVariants} className="space-y-6">
+      <VerificationBanner />
+
       {/* Stats Cards */}
       <div className="grid grid-cols-3 gap-6">
         <StatCard title="Buildings" value={propertyCount.toString()} icon={<BuildingIcon size={40} />} />
@@ -383,10 +387,10 @@ const DashboardContent: React.FC<{ userId: number }> = ({ userId }) => {
       <motion.div variants={fadeInVariants} className="grid grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl shadow-xl shadow-black/5 ring-1 ring-black/5 p-8">
           <h2 className="text-xl font-semibold tracking-tight mb-6">Revenue This Month</h2>
-          <p className="text-4xl font-semibold tracking-tight">ZMW7000</p>
+          <p className="text-4xl font-semibold tracking-tight">K7000</p>
           <div className="mt-6 p-6 border-2 border-yellow-400 rounded-2xl bg-yellow-50">
             <p className="text-sm text-gray-600 mb-2">Revenue Today</p>
-            <p className="text-3xl font-semibold tracking-tight">ZMW500</p>
+            <p className="text-3xl font-semibold tracking-tight">K500</p>
           </div>
         </div>
 
@@ -556,40 +560,39 @@ const ManageRoomsContent: React.FC<{ userId: number }> = ({ userId }) => {
           </div>
         ) : (
           <div className="bg-white rounded-3xl shadow-lg ring-1 ring-black/5 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-black text-white">
-                <tr>
-                  <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight">Room Type</th>
-                  <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight">Room ID</th>
-                  <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight">Property</th>
-                  <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight">Amenities</th>
-                  <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight">Price</th>
-                  <th className="text-center py-4 px-6 text-sm font-semibold tracking-tight">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRooms.map((room, index) => (
-                  <tr
-                    key={room.room_id}
-                    className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}
-                  >
-                    <td className="py-4 px-6">{room.room_type}</td>
-                    <td className="py-4 px-6">RID{room.room_id.toString().padStart(3, '0')}</td>
-                    <td className="py-4 px-6">{room.property_name}</td>
-                    <td className="py-4 px-6">{room.amenities?.length || 0}</td>
-                    <td className="py-4 px-6 font-semibold">ZMW{room.base_price}</td>
-                    <td className="py-4 px-6 text-center">
-                      <button
-                        onClick={() => router.push(`/edit-room/${room.room_id}`)}
-                        className="inline-flex items-center rounded-full bg-yellow-400 px-6 py-2 text-sm font-semibold text-black shadow-[inset_0_2px_0_0_rgba(255,255,255,0.7),inset_0_-1px_0_0_rgba(0,0,0,0.15)] transition-[background-color,transform] duration-200 ease-out hover:bg-yellow-500 active:scale-[0.97]"
-                      >
-                        Edit
-                      </button>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead className="bg-black text-white">
+                  <tr>
+                    <th className="sticky left-0 z-10 bg-black text-left py-4 px-6 text-sm font-semibold tracking-tight">Room Type</th>
+                    <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight whitespace-nowrap">Room ID</th>
+                    <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight whitespace-nowrap">Property</th>
+                    <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight whitespace-nowrap">Amenities</th>
+                    <th className="text-left py-4 px-6 text-sm font-semibold tracking-tight whitespace-nowrap">Price</th>
+                    <th className="text-center py-4 px-6 text-sm font-semibold tracking-tight whitespace-nowrap">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredRooms.map((room) => (
+                    <tr key={room.room_id} className="group border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
+                      <td className="sticky left-0 z-10 bg-white group-hover:bg-gray-50 py-4 px-6 font-medium">{room.room_type}</td>
+                      <td className="py-4 px-6 whitespace-nowrap text-gray-600">RID{room.room_id.toString().padStart(3, '0')}</td>
+                      <td className="py-4 px-6 whitespace-nowrap">{room.property_name}</td>
+                      <td className="py-4 px-6 whitespace-nowrap">{room.amenities?.length || 0}</td>
+                      <td className="py-4 px-6 font-semibold whitespace-nowrap">K{room.base_price}</td>
+                      <td className="py-4 px-6 text-center whitespace-nowrap">
+                        <button
+                          onClick={() => router.push(`/edit-room/${room.room_id}`)}
+                          className="inline-flex items-center rounded-full bg-yellow-400 px-6 py-2 text-sm font-semibold text-black shadow-[inset_0_2px_0_0_rgba(255,255,255,0.7),inset_0_-1px_0_0_rgba(0,0,0,0.15)] transition-[background-color,transform] duration-200 ease-out hover:bg-yellow-500 active:scale-[0.97]"
+                        >
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </motion.div>
@@ -719,7 +722,7 @@ const BookingModal: React.FC<{ booking: Booking; onClose: () => void }> = ({ boo
             { label: 'Check-out', value: formatDateLong(toDateInput(booking.check_out_date)) },
             { label: 'Duration', value: `${nights} night${nights > 1 ? 's' : ''}` },
             { label: 'Guests', value: booking.num_guests },
-            { label: 'Total', value: `ZMW ${Number(booking.total_price).toFixed(2)}` },
+            { label: 'Total', value: `K${Number(booking.total_price).toFixed(2)}` },
             { label: 'Payment', value: booking.payment_method },
           ].map(({ label, value }) => (
             <div key={label} className="flex gap-2">
@@ -1003,7 +1006,39 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
   );
 };
 const placeholderClass = "bg-white rounded-3xl shadow-lg ring-1 ring-black/5 p-8 text-xl font-medium tracking-tight text-gray-700";
-const EventsCenterContent = () => <div className={placeholderClass}>Events Center Content</div>;
+
+const EventsCenterContent = () => {
+  const [eligibleCount, setEligibleCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/events/eligible-properties`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : { properties: [] }))
+      .then((data) => setEligibleCount((data.properties ?? []).length))
+      .catch(() => setEligibleCount(0));
+  }, []);
+
+  if (eligibleCount === null) {
+    return <div className="text-center py-8">Loading...</div>;
+  }
+
+  return (
+    <motion.div initial="hidden" animate="visible" variants={staggerContainerVariants} className="space-y-8">
+      <motion.div variants={fadeInVariants}>
+        <h2 className="text-3xl font-semibold tracking-tight">Events Center</h2>
+      </motion.div>
+
+      <motion.div variants={fadeInVariants}>
+        {eligibleCount === 0 ? (
+          <div className="bg-white rounded-3xl shadow-lg ring-1 ring-black/5 p-8 text-center text-gray-500">
+            None of your properties are set up to host events yet. Add a property with type &quot;Event Center&quot; or &quot;Both&quot; to start selling tickets.
+          </div>
+        ) : (
+          <EventsManager />
+        )}
+      </motion.div>
+    </motion.div>
+  );
+};
 const CalendarContent = () => <div className={placeholderClass}>Calendar Content</div>;
 const CustomersContent = () => <div className={placeholderClass}>Customers Content</div>;
 const ReportsContent = () => <div className={placeholderClass}>Reports Content</div>;

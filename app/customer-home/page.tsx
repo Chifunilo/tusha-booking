@@ -7,10 +7,14 @@ import { API_URL } from '@/lib/api';
 // Lazy load heavy components
 const HeroSection = lazy(() => import('@/components/customer/HeroSection'));
 const PropertyCard = lazy(() => import('@/components/customer/PropertyCard'));
+const EventCard = lazy(() => import('@/components/customer/EventCard'));
+const Footer = lazy(() => import('@/components/customer/Footer'));
 
 interface Property {
   property_id: number;
   property_name: string;
+  description: string | null;
+  area: string | null;
   city: string;
   country: string;
   images: string[];
@@ -20,10 +24,24 @@ interface Property {
   min_price: number;
 }
 
+interface EventListing {
+  event_id: number;
+  event_name: string;
+  event_date: string;
+  start_time: string;
+  ticket_price: number;
+  tickets_available: number;
+  event_image: string | null;
+  property_name: string;
+  city: string | null;
+  country: string;
+}
+
 export default function CustomerHomepage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'home' | 'events' | 'popular'>('home');
   const [properties, setProperties] = useState<Property[]>([]);
+  const [events, setEvents] = useState<EventListing[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Auth state — checked via JWT cookie through /api/me
@@ -39,19 +57,21 @@ export default function CustomerHomepage() {
   }, []);
 
   useEffect(() => {
-    fetchProperties();
+    if (activeTab === 'events') {
+      fetchEvents();
+    } else {
+      fetchProperties();
+    }
   }, [activeTab]);
 
-  const fetchProperties = async () => {
+  const fetchProperties = async (city?: string, maxPrice?: string) => {
     setLoading(true);
     try {
-      let url = `${API_URL}/api/properties/customer`;
+      const params = new URLSearchParams();
+      if (city) params.append('city', city);
+      if (maxPrice) params.append('maxPrice', maxPrice);
 
-      if (activeTab === 'events') {
-        url = `${API_URL}/api/properties/customer?type=events`;
-      }
-
-      const response = await fetch(url);
+      const response = await fetch(`${API_URL}/api/properties/customer?${params.toString()}`);
       const data = await response.json();
       if (response.ok) {
         setProperties(data.properties || []);
@@ -63,27 +83,29 @@ export default function CustomerHomepage() {
     }
   };
 
-  const handleSearch = async (location: string, price: string) => {
+  const fetchEvents = async (city?: string) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (location) params.append('city', location);
-      if (price) params.append('maxPrice', price);
+      if (city) params.append('city', city);
 
-      let url = `${API_URL}/api/properties/customer?${params.toString()}`;
-      if (activeTab === 'events') {
-        url += '&type=events';
-      }
-
-      const response = await fetch(url);
+      const response = await fetch(`${API_URL}/api/events/customer?${params.toString()}`);
       const data = await response.json();
       if (response.ok) {
-        setProperties(data.properties || []);
+        setEvents(data.events || []);
       }
     } catch (error) {
-      console.error('Error searching properties:', error);
+      console.error('Error fetching events:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSearch = async (location: string, price: string) => {
+    if (activeTab === 'events') {
+      fetchEvents(location);
+    } else {
+      fetchProperties(location, price);
     }
   };
 
@@ -94,6 +116,10 @@ export default function CustomerHomepage() {
   const handlePropertyClick = (propertyId: number) => {
     // Anyone can view a property page — auth is checked when they hit Book
     router.push(`/property/${propertyId}`);
+  };
+
+  const handleEventClick = (eventId: number) => {
+    router.push(`/event/${eventId}`);
   };
 
   return (
@@ -136,8 +162,31 @@ export default function CustomerHomepage() {
           </div>
         ) : loading ? (
           <div className="bg-white rounded-2xl shadow-lg p-20 text-center">
-            <p className="text-2xl text-gray-500">Loading properties...</p>
+            <p className="text-2xl text-gray-500">Loading {activeTab === 'events' ? 'events' : 'properties'}...</p>
           </div>
+        ) : activeTab === 'events' ? (
+          events.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-lg p-20 text-center">
+              <h2 className="text-3xl font-bold text-gray-400">No events found</h2>
+              <p className="text-gray-500 mt-4">Try adjusting your search filters</p>
+            </div>
+          ) : (
+            <Suspense fallback={
+              <div className="text-center py-20">
+                <p className="text-xl text-gray-500">Loading events...</p>
+              </div>
+            }>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {events.map((event) => (
+                  <EventCard
+                    key={event.event_id}
+                    event={event}
+                    onClick={() => handleEventClick(event.event_id)}
+                  />
+                ))}
+              </div>
+            </Suspense>
+          )
         ) : properties.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-lg p-20 text-center">
             <h2 className="text-3xl font-bold text-gray-400">No properties found</h2>
@@ -149,7 +198,7 @@ export default function CustomerHomepage() {
               <p className="text-xl text-gray-500">Loading properties...</p>
             </div>
           }>
-            <div className="grid grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {properties.map((property) => (
                 <PropertyCard
                   key={property.property_id}
@@ -161,6 +210,10 @@ export default function CustomerHomepage() {
           </Suspense>
         )}
       </div>
+
+      <Suspense fallback={<div className="h-64 bg-black" />}>
+        <Footer />
+      </Suspense>
     </div>
   );
 }

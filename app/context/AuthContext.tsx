@@ -21,6 +21,12 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  // True until the initial localStorage check has run. Pages that redirect
+  // unauthenticated visitors away must wait for this to go false first —
+  // isAuthenticated starts false on every mount (even for a logged-in user)
+  // until that check completes, since reading localStorage has to happen in
+  // an effect, not during render.
+  loading: boolean;
   login: (userData: User) => void;
   logout: (redirectTo?: string) => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
@@ -33,6 +39,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   // Load user from localStorage on mount
@@ -48,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('user');
       }
     }
+    setLoading(false);
   }, []);
 
   const login = (userData: User) => {
@@ -81,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
