@@ -14,9 +14,8 @@ const columns: FooterColumn[] = [
     title: 'Explore',
     links: [
       { label: 'Stays', href: '/' },
-      { label: 'Events', href: '/' },
+      { label: 'Venues', href: '/?tab=venues' },
       { label: 'My bookings', href: '/bookings' },
-      { label: 'My tickets', href: '/tickets' },
     ],
   },
   {

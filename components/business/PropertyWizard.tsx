@@ -13,10 +13,11 @@ import {
   parseCoordinates,
 } from '@/lib/facilities';
 import RoomTypesManager from './RoomTypesManager';
+import SpacesManager from './SpacesManager';
 
 const MIN_PHOTOS = 3;
 
-const STEPS = ['Basics', 'Location', 'Facilities', 'Photos', 'Rooms', 'Policies', 'Review'] as const;
+const STEPS = ['Basics', 'Location', 'Facilities', 'Photos', 'Rooms', 'Event spaces', 'Policies', 'Review'] as const;
 type Step = (typeof STEPS)[number];
 
 interface Draft {
@@ -89,6 +90,7 @@ const CHECKLIST_STEP: Record<string, Step> = {
   photos: 'Photos',
   times: 'Policies',
   rooms: 'Rooms',
+  spaces: 'Event spaces',
 };
 
 const TIME_OPTIONS = Array.from({ length: 38 }, (_, i) => {
@@ -337,6 +339,7 @@ export default function PropertyWizard({ initialPropertyId }: { initialPropertyI
 
   const statusCopy = STATUS_COPY[status] ?? STATUS_COPY.draft;
   const isRoomBased = draft.propertyType !== 'event_center';
+  const needsSpaces = draft.propertyType === 'event_center' || draft.propertyType === 'both';
   const stepIndex = STEPS.indexOf(step);
 
   return (
@@ -572,8 +575,19 @@ export default function PropertyWizard({ initialPropertyId }: { initialPropertyI
             isRoomBased ? (
               <RoomTypesManager propertyId={propertyId} onChange={refresh} />
             ) : (
-              <p className="text-gray-600">Event centres don&apos;t need room types. Event space listings are coming soon.</p>
+              <p className="text-gray-600">Event centres don&apos;t need room types. Add your halls and gardens in the next step.</p>
             )
+          )}
+
+          {step === 'Event spaces' && propertyId && (
+            <>
+              <p className="text-gray-600">
+                {needsSpaces
+                  ? 'Add each hall, conference room or garden you hire out. Guests send you an enquiry and you agree the details with them directly.'
+                  : 'Optional. If you hire out a conference room, boardroom or garden, add it here and planners can send you enquiries. Otherwise, skip this step.'}
+              </p>
+              <SpacesManager propertyId={propertyId} onChange={refresh} />
+            </>
           )}
 
           {step === 'Policies' && (

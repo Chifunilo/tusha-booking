@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 
 const PROTECTED_ROUTES = [
-  '/booking', '/payment', '/profile-page', '/bookings', '/tickets',
+  '/booking', '/payment', '/profile-page', '/bookings',
   '/business-dashboard', '/add-property', '/add-room',
 ];
 
@@ -48,7 +48,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/booking/:path*', '/payment/:path*', '/profile-page/:path*', '/bookings/:path*', '/tickets/:path*',
+    '/booking/:path*', '/payment/:path*', '/profile-page/:path*', '/bookings/:path*',
     '/business-dashboard/:path*', '/add-property/:path*', '/add-room/:path*',
     '/admin/:path*',
   ],

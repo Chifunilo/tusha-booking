@@ -4,7 +4,7 @@ import { AddIcon, BedIcon, BuildingIcon } from '@/components/icons';
 import React, { useState, useEffect, useRef } from 'react';
 import VerificationBanner from '@/components/business/VerificationBanner';
 import { PropertyCard } from '@/components/business';
-import EventsManager from '@/components/business/EventsManager';
+import EnquiriesInbox from '@/components/business/EnquiriesInbox';
 
 import {
   LayoutDashboard,
@@ -74,7 +74,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { id: 'bookings', label: 'Bookings', icon: <Calendar size={20} /> },
       { id: 'manage-rooms', label: 'Manage Rooms', icon: <Bed size={20} /> },
-      { id: 'events-center', label: 'Events Center', icon: <Tent size={20} /> },
+      { id: 'events-center', label: 'Venue enquiries', icon: <Tent size={20} /> },
       { id: 'calendar', label: 'Calendar', icon: <CalendarDays size={20} /> },
     ],
   },
@@ -326,7 +326,7 @@ export default function BusinessDashboard() {
             {activeMenu === 'dashboard' && <DashboardContent userId={user.user_id} />}
             {activeMenu === 'bookings' && <BookingsContent userId={user.user_id} />}
             {activeMenu === 'manage-rooms' && <ManageRoomsContent userId={user.user_id} />}
-            {activeMenu === 'events-center' && <EventsCenterContent />}
+            {activeMenu === 'events-center' && <EnquiriesInbox />}
             {activeMenu === 'calendar' && <CalendarContent />}
             {activeMenu === 'customers' && <CustomersContent />}
             {activeMenu === 'reports' && <ReportsContent />}
@@ -1007,38 +1007,6 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
 };
 const placeholderClass = "bg-white rounded-3xl shadow-lg ring-1 ring-black/5 p-8 text-xl font-medium tracking-tight text-gray-700";
 
-const EventsCenterContent = () => {
-  const [eligibleCount, setEligibleCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    fetch(`${API_URL}/api/events/eligible-properties`, { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : { properties: [] }))
-      .then((data) => setEligibleCount((data.properties ?? []).length))
-      .catch(() => setEligibleCount(0));
-  }, []);
-
-  if (eligibleCount === null) {
-    return <div className="text-center py-8">Loading...</div>;
-  }
-
-  return (
-    <motion.div initial="hidden" animate="visible" variants={staggerContainerVariants} className="space-y-8">
-      <motion.div variants={fadeInVariants}>
-        <h2 className="text-3xl font-semibold tracking-tight">Events Center</h2>
-      </motion.div>
-
-      <motion.div variants={fadeInVariants}>
-        {eligibleCount === 0 ? (
-          <div className="bg-white rounded-3xl shadow-lg ring-1 ring-black/5 p-8 text-center text-gray-500">
-            None of your properties are set up to host events yet. Add a property with type &quot;Event Center&quot; or &quot;Both&quot; to start selling tickets.
-          </div>
-        ) : (
-          <EventsManager />
-        )}
-      </motion.div>
-    </motion.div>
-  );
-};
 const CalendarContent = () => <div className={placeholderClass}>Calendar Content</div>;
 const CustomersContent = () => <div className={placeholderClass}>Customers Content</div>;
 const ReportsContent = () => <div className={placeholderClass}>Reports Content</div>;

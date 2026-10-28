@@ -1,13 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { NavTab, navTabHref } from '@/lib/nav';
+import type { Venue } from '@/components/customer/VenueCard';
 import { API_URL } from '@/lib/api';
 
 // Lazy load heavy components
 const HeroSection = lazy(() => import('@/components/customer/HeroSection'));
 const PropertyCard = lazy(() => import('@/components/customer/PropertyCard'));
-const EventCard = lazy(() => import('@/components/customer/EventCard'));
+const VenueCard = lazy(() => import('@/components/customer/VenueCard'));
 const Footer = lazy(() => import('@/components/customer/Footer'));
 
 interface Property {
@@ -24,24 +26,13 @@ interface Property {
   min_price: number;
 }
 
-interface EventListing {
-  event_id: number;
-  event_name: string;
-  event_date: string;
-  start_time: string;
-  ticket_price: number;
-  tickets_available: number;
-  event_image: string | null;
-  property_name: string;
-  city: string | null;
-  country: string;
-}
-
-export default function CustomerHomepage() {
+function CustomerHomepageContent() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'home' | 'events' | 'popular'>('home');
+  // The tab lives in the URL (/?tab=venues) so the nav, footer and other pages can link to it.
+  const tabParam = useSearchParams().get('tab');
+  const activeTab: NavTab = tabParam === 'venues' || tabParam === 'popular' ? tabParam : 'home';
   const [properties, setProperties] = useState<Property[]>([]);
-  const [events, setEvents] = useState<EventListing[]>([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Auth state — checked via JWT cookie through /api/me
@@ -57,8 +48,8 @@ export default function CustomerHomepage() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'events') {
-      fetchEvents();
+    if (activeTab === 'venues') {
+      fetchVenues();
     } else {
       fetchProperties();
     }
@@ -83,34 +74,36 @@ export default function CustomerHomepage() {
     }
   };
 
-  const fetchEvents = async (city?: string) => {
+  const fetchVenues = async (city?: string, guests?: string) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (city) params.append('city', city);
+      if (guests && Number(guests) >= 1) params.append('guests', String(Math.floor(Number(guests))));
 
-      const response = await fetch(`${API_URL}/api/events/customer?${params.toString()}`);
+      const response = await fetch(`${API_URL}/api/spaces?${params.toString()}`);
       const data = await response.json();
       if (response.ok) {
-        setEvents(data.events || []);
+        setVenues(data.venues || []);
       }
     } catch (error) {
-      console.error('Error fetching events:', error);
+      console.error('Error fetching venues:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  // The hero's second field is max price for stays and guest count for venues.
   const handleSearch = async (location: string, price: string) => {
-    if (activeTab === 'events') {
-      fetchEvents(location);
+    if (activeTab === 'venues') {
+      fetchVenues(location, price);
     } else {
       fetchProperties(location, price);
     }
   };
 
-  const handleTabChange = (tab: 'home' | 'events' | 'popular') => {
-    setActiveTab(tab);
+  const handleTabChange = (tab: NavTab) => {
+    router.replace(navTabHref(tab), { scroll: false });
   };
 
   const handlePropertyClick = (propertyId: number) => {
@@ -118,8 +111,8 @@ export default function CustomerHomepage() {
     router.push(`/property/${propertyId}`);
   };
 
-  const handleEventClick = (eventId: number) => {
-    router.push(`/event/${eventId}`);
+  const handleVenueClick = (venue: Venue) => {
+    router.push(`/property/${venue.property_id}#space-${venue.space_id}`);
   };
 
   return (
@@ -162,27 +155,23 @@ export default function CustomerHomepage() {
           </div>
         ) : loading ? (
           <div className="bg-white rounded-2xl shadow-lg p-20 text-center">
-            <p className="text-2xl text-gray-500">Loading {activeTab === 'events' ? 'events' : 'properties'}...</p>
+            <p className="text-2xl text-gray-500">Loading {activeTab === 'venues' ? 'venues' : 'properties'}...</p>
           </div>
-        ) : activeTab === 'events' ? (
-          events.length === 0 ? (
+        ) : activeTab === 'venues' ? (
+          venues.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-lg p-20 text-center">
-              <h2 className="text-3xl font-bold text-gray-400">No events found</h2>
-              <p className="text-gray-500 mt-4">Try adjusting your search filters</p>
+              <h2 className="text-3xl font-bold text-gray-400">No venues found</h2>
+              <p className="text-gray-500 mt-4">Try another town, or fewer guests</p>
             </div>
           ) : (
             <Suspense fallback={
               <div className="text-center py-20">
-                <p className="text-xl text-gray-500">Loading events...</p>
+                <p className="text-xl text-gray-500">Loading venues...</p>
               </div>
             }>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {events.map((event) => (
-                  <EventCard
-                    key={event.event_id}
-                    event={event}
-                    onClick={() => handleEventClick(event.event_id)}
-                  />
+                {venues.map((venue) => (
+                  <VenueCard key={venue.space_id} venue={venue} onClick={() => handleVenueClick(venue)} />
                 ))}
               </div>
             </Suspense>
@@ -215,5 +204,14 @@ export default function CustomerHomepage() {
         <Footer />
       </Suspense>
     </div>
+  );
+}
+
+// useSearchParams needs a Suspense boundary for Next to prerender the page.
+export default function CustomerHomepage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50" />}>
+      <CustomerHomepageContent />
+    </Suspense>
   );
 }

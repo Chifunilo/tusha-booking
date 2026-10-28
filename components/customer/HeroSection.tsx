@@ -4,21 +4,18 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { LocationIcon, DollarIcon } from '@/components/icons';
-import { ArrowDown, ArrowRight, Menu, X } from 'lucide-react';
+import { ArrowDown, ArrowRight, Menu, Users, X } from 'lucide-react';
+import { NAV_TABS, NavTab } from '@/lib/nav';
 import { motion, type Variants } from 'motion/react';
 import Image from 'next/image';
 
 interface HeroSectionProps {
-  activeTab: 'home' | 'events' | 'popular';
-  onTabChange: (tab: 'home' | 'events' | 'popular') => void;
+  activeTab: NavTab;
+  onTabChange: (tab: NavTab) => void;
   onSearch: (location: string, price: string) => void;
 }
 
-const navLinks: { id: 'home' | 'events' | 'popular'; label: string }[] = [
-  { id: 'home', label: 'Home' },
-  { id: 'events', label: 'Events' },
-  { id: 'popular', label: 'Popular' },
-];
+const navLinks = NAV_TABS;
 
 const sectionVariants: Variants = {
   hidden: {},
@@ -239,10 +236,11 @@ const HeroSection: React.FC<HeroSectionProps> = ({
               </div>
 
               <div className="flex w-full items-center gap-3 rounded-xl border-2 border-yellow-400 bg-white px-5 py-3.5 sm:flex-1">
-                <DollarIcon size={22} />
+                {activeTab === 'venues' ? <Users size={22} className="text-gray-700" /> : <DollarIcon size={22} />}
                 <input
                   type="number"
-                  placeholder="Max price"
+                  min={1}
+                  placeholder={activeTab === 'venues' ? 'Number of guests' : 'Max price'}
                   value={searchParams.price}
                   onChange={(e) => setSearchParams({ ...searchParams, price: e.target.value })}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}

@@ -1,10 +1,13 @@
 "use client";
 
-import React, { use, useEffect, useMemo, useRef, useState } from "react";
+import React, { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BookingHeader from "@/components/customer/BookingHeader";
 import PropertyGallery from "@/components/property/PropertyGallery";
 import RoomTypeCard, { RoomType, priceFor } from "@/components/property/RoomTypeCard";
+import EventSpaceCard from "@/components/property/EventSpaceCard";
+import EnquiryForm from "@/components/property/EnquiryForm";
+import type { EventSpace } from "@/lib/venues";
 import { API_URL } from "@/lib/api";
 import { formatCurrency, Residency } from "@/lib/roomTypes";
 import {
@@ -39,6 +42,7 @@ interface PropertyDetail {
   images: string[];
   amenities: { amenity_id: number; name: string }[];
   room_types: RoomType[];
+  event_spaces: EventSpace[];
   avg_rating: number;
   review_count: number;
   check_in_time: string | null;
@@ -110,7 +114,7 @@ function About({ text }: { text: string }) {
     <div>
       <p className={`whitespace-pre-line leading-relaxed text-gray-700 ${long && !expanded ? "line-clamp-5" : ""}`}>{text}</p>
       {long && (
-        <button onClick={() => setExpanded((e) => !e)} className="mt-2 text-sm font-semibold text-gray-900 underline">
+        <button onClick={() => setExpanded((e) => !e)} className="mt-1 text-sm font-semibold text-gray-900 underline">
           {expanded ? "Show less" : "Read more"}
         </button>
       )}
@@ -437,6 +441,15 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ prope
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [dateHint, setDateHint] = useState(false);
   const checkInRef = useRef<HTMLInputElement>(null);
+  const [enquiring, setEnquiring] = useState<EventSpace | null>(null);
+  const closeEnquiry = useCallback(() => setEnquiring(null), []);
+
+  // Venue cards link to /property/:id#space-:id; the section only exists once loaded.
+  useEffect(() => {
+    if (property && window.location.hash.startsWith("#space-")) {
+      document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [property]);
 
   useEffect(() => {
     let cancelled = false;
@@ -584,9 +597,22 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ prope
                       ))}
                     </div>
                   </Section>
-                ) : (
+                ) : property.event_spaces.length === 0 ? (
                   <Section id="rooms" title="Bookings">
-                    <p className="text-gray-700">This venue doesn&apos;t take room bookings on Tusha yet. Contact the property to make arrangements.</p>
+                    <p className="text-gray-700">This venue doesn&apos;t take bookings on Tusha yet. Contact the property to make arrangements.</p>
+                  </Section>
+                ) : null}
+
+                {property.event_spaces.length > 0 && (
+                  <Section id="event-spaces" title="Event spaces">
+                    <p className="mb-4 text-sm text-gray-600">
+                      Planning a conference, meeting or celebration? Send an enquiry and the venue will reply with availability and a quote.
+                    </p>
+                    <div className="space-y-4">
+                      {property.event_spaces.map((space) => (
+                        <EventSpaceCard key={space.space_id} space={space} onEnquire={setEnquiring} />
+                      ))}
+                    </div>
                   </Section>
                 )}
 
@@ -624,6 +650,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ prope
           </>
         )}
       </main>
+
+      {enquiring && property && <EnquiryForm space={enquiring} propertyName={property.property_name} onClose={closeEnquiry} />}
     </div>
   );
 }

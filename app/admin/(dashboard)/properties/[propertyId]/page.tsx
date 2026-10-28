@@ -7,6 +7,7 @@ import { ArrowLeft, Check, X, MessageSquare, Ban, Loader2, CheckCircle2 } from '
 import { API_URL } from '@/lib/api';
 import { fadeInVariants, staggerContainerVariants } from '@/lib/motion';
 import { formatCurrency, mealPlanLabel } from '@/lib/roomTypes';
+import { spaceTypeLabel } from '@/lib/venues';
 
 interface PropertyDetail {
   property_id: number;
@@ -44,6 +45,16 @@ interface PropertyDetail {
     non_resident_price: string | null;
     is_active: boolean;
     unit_count: number;
+  }[];
+  event_spaces: {
+    space_id: number;
+    space_name: string;
+    space_type: string;
+    max_capacity: number;
+    per_delegate_rate: string | null;
+    full_day_rate: string | null;
+    images: string[];
+    is_active: boolean | null;
   }[];
 }
 
@@ -233,6 +244,26 @@ export default function AdminPropertyDetailPage() {
               </table>
             )}
           </div>
+
+          {property.event_spaces.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-xl shadow-black/5 ring-1 ring-black/5 p-6">
+              <h2 className="text-lg font-semibold tracking-tight mb-4">Event spaces ({property.event_spaces.length})</h2>
+              <ul className="space-y-2 text-sm">
+                {property.event_spaces.map((s) => (
+                  <li key={s.space_id} className={`flex items-center justify-between rounded-lg bg-gray-50 px-4 py-2.5 ${s.is_active ? '' : 'text-gray-400'}`}>
+                    <span>
+                      <span className="font-medium">{s.space_name}</span> · {spaceTypeLabel(s.space_type)} · up to {s.max_capacity}
+                      {!s.is_active && ' (hidden)'}
+                      <span className="block text-xs text-gray-500">{s.images.length} photo{s.images.length === 1 ? '' : 's'}</span>
+                    </span>
+                    <span className="text-gray-600">
+                      {s.per_delegate_rate ? `${formatCurrency(s.per_delegate_rate)} pp/day` : s.full_day_rate ? `${formatCurrency(s.full_day_rate)}/day` : 'On request'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </motion.div>
 
         {/* Business + actions */}

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { NavTab } from '@/lib/nav';
 import { useRouter, useSearchParams } from 'next/navigation';
 import BookingHeader from '@/components/customer/BookingHeader';
 import PaymentCardFields from '@/components/payment/PaymentCardFields';
@@ -22,7 +23,7 @@ export default function PaymentPage() {
   const email = searchParams.get('email');
   const phone = searchParams.get('phone');
 
-  const [activeTab, setActiveTab] = useState<'home' | 'events' | 'popular'>('home');
+  const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [bookingReference, setBookingReference] = useState('');

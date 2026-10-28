@@ -4,10 +4,11 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import Image from 'next/image';
+import { NavTab, navTabHref } from '@/lib/nav';
 
 interface BookingHeaderProps {
-  activeTab?: 'home' | 'events' | 'popular';
-  onTabChange?: (tab: 'home' | 'events' | 'popular') => void;
+  activeTab?: NavTab;
+  onTabChange?: (tab: NavTab) => void;
   userProfileImage?: string;
 }
 
@@ -20,12 +21,10 @@ export default function BookingHeader({
   const { user, isAuthenticated } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const handleTabClick = (tab: 'home' | 'events' | 'popular') => {
+  const handleTabClick = (tab: NavTab) => {
     if (onTabChange) onTabChange(tab);
     
-    if (tab === 'home') router.push('/');
-    else if (tab === 'events') router.push('/?type=events');
-    else if (tab === 'popular') router.push('/?tab=popular');
+    router.push(navTabHref(tab));
     
     setIsMenuOpen(false); // Close menu after click
   };
@@ -65,12 +64,12 @@ export default function BookingHeader({
               Home
             </button>
             <button
-              onClick={() => handleTabClick('events')}
+              onClick={() => handleTabClick('venues')}
               className={`text-lg font-medium transition-colors ${
-                activeTab === 'events' ? 'text-white' : 'text-gray-400 hover:text-white'
+                activeTab === 'venues' ? 'text-white' : 'text-gray-400 hover:text-white'
               }`}
             >
-              Events
+              Venues
             </button>
             <button
               onClick={() => handleTabClick('popular')}
@@ -148,7 +147,7 @@ export default function BookingHeader({
         {isMenuOpen && (
           <div className="md:hidden mt-6 bg-zinc-900 rounded-2xl py-6 px-6 flex flex-col gap-6 text-lg font-medium">
             <button onClick={() => handleTabClick('home')} className="text-left py-2">Home</button>
-            <button onClick={() => handleTabClick('events')} className="text-left py-2">Events</button>
+            <button onClick={() => handleTabClick('venues')} className="text-left py-2">Venues</button>
             <button onClick={() => handleTabClick('popular')} className="text-left py-2">Popular</button>
           </div>
         )}
