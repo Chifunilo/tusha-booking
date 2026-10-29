@@ -5,6 +5,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import VerificationBanner from '@/components/business/VerificationBanner';
 import { PropertyCard } from '@/components/business';
 import EnquiriesInbox from '@/components/business/EnquiriesInbox';
+import { BlockDetailModal, BlockRoomsModal, BlockableRoom } from '@/components/business/RoomBlockModals';
+import { blockReasonLabel, localToday, RoomBlock } from '@/lib/roomBlocks';
 
 import {
   LayoutDashboard,
@@ -669,10 +671,9 @@ function formatDateLong(dateStr: string): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// Local date: toISOString() of local midnight is still yesterday in UTC+ timezones like Zambia.
 function getTodayStr(): string {
-  const t = new Date();
-  t.setHours(0, 0, 0, 0);
-  return t.toISOString().split('T')[0];
+  return localToday();
 }
 
 // ─── Booking Detail Modal ─────────────────────────────────────────────────────
@@ -797,6 +798,45 @@ const BookingBar: React.FC<{
   );
 };
 
+// ─── Block Bar ────────────────────────────────────────────────────────────────
+
+const blockStripes = 'bg-[repeating-linear-gradient(135deg,#e5e7eb_0,#e5e7eb_6px,#d1d5db_6px,#d1d5db_12px)]';
+
+const BlockBar: React.FC<{
+  block: RoomBlock;
+  position: BarPos;
+  onClick: () => void;
+}> = ({ block, position, onClick }) => {
+  const radiusClass = {
+    single: 'rounded-full',
+    start:  'rounded-l-full rounded-r',
+    mid:    'rounded-none',
+    end:    'rounded-r-full rounded-l',
+  }[position];
+
+  const showLabel = position === 'single' || position === 'start';
+
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      title={`${blockReasonLabel(block.reason)}${block.note ? `: ${block.note}` : ''}`}
+      className={`
+        absolute top-1.5 bottom-1.5 ${blockStripes} hover:brightness-95
+        cursor-pointer flex items-center overflow-hidden px-2
+        ${radiusClass}
+        ${position === 'start' || position === 'single' ? 'left-1' : 'left-0'}
+        ${position === 'end'   || position === 'single' ? 'right-1' : 'right-0'}
+      `}
+    >
+      {showLabel && (
+        <span className="text-xs font-medium text-gray-700 truncate">
+          {block.reason === 'maintenance' ? 'Repairs' : 'Blocked'}
+        </span>
+      )}
+    </div>
+  );
+};
+
 // ─── Bookings Calendar ────────────────────────────────────────────────────────
 
 const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
@@ -806,13 +846,32 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
   const [appliedFrom, setAppliedFrom] = useState(today);
   const [appliedTo,   setAppliedTo]   = useState(addDays(today, 14));
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [rooms,    setRooms]    = useState<{ room_id: number; room_number: string }[]>([]);
+  const [rooms,    setRooms]    = useState<BlockableRoom[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [selected, setSelected] = useState<Booking | null>(null);
+  const [blocks,   setBlocks]   = useState<RoomBlock[]>([]);
+  const [blocking, setBlocking] = useState<{ roomId?: number; date?: string } | null>(null);
+  const [selectedBlock, setSelectedBlock] = useState<RoomBlock | null>(null);
 
   useEffect(() => {
     fetchData();
   }, [userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/room-blocks?from=${appliedFrom}`, { credentials: 'include' });
+        const data = await res.json();
+        if (res.ok && !cancelled) setBlocks(data.blocks || []);
+      } catch (err) {
+        console.error('Error fetching blocked dates:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [appliedFrom]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -860,7 +919,17 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
     <motion.div initial="hidden" animate="visible" variants={staggerContainerVariants} className="space-y-4">
       {/* Header */}
       <motion.div variants={fadeInVariants} className="flex flex-wrap justify-between items-center gap-4">
-        <h2 className="text-3xl font-semibold tracking-tight text-gray-900">Manage Bookings</h2>
+        <div className="flex items-center gap-4 flex-wrap">
+          <h2 className="text-3xl font-semibold tracking-tight text-gray-900">Manage Bookings</h2>
+          {rooms.length > 0 && (
+            <button
+              onClick={() => setBlocking({})}
+              className="inline-flex items-center rounded-full bg-black px-4 py-1.5 text-sm font-semibold text-white transition-[background-color,transform] duration-200 ease-out hover:bg-gray-800 active:scale-[0.97]"
+            >
+              Block rooms
+            </button>
+          )}
+        </div>
 
         {/* Date filter */}
         <div className="flex items-center gap-3 flex-wrap">
@@ -892,6 +961,14 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
           </button>
         </div>
       </motion.div>
+
+      {rooms.length > 0 && (
+        <motion.div variants={fadeInVariants} className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-gray-500">
+          <span className="inline-flex items-center gap-1.5"><span className="h-3 w-6 rounded-full bg-yellow-400" />Booking</span>
+          <span className="inline-flex items-center gap-1.5"><span className={`h-3 w-6 rounded-full ${blockStripes}`} />Blocked</span>
+          <span>Click an empty night to block it.</span>
+        </motion.div>
+      )}
 
       {/* Calendar */}
       <motion.div variants={fadeInVariants} className="bg-white rounded-3xl shadow-xl shadow-black/5 ring-1 ring-black/5 overflow-hidden">
@@ -943,6 +1020,7 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
                   const roomBookings = bookings.filter(
                     (b) => b.room_id === room.room_id
                   );
+                  const roomBlocks = blocks.filter((b) => b.room_id === room.room_id);
 
                   return (
                     <tr key={room.room_id} className="group">
@@ -959,15 +1037,36 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
                           const bEnd   = toDateInput(b.check_out_date);
                           return d >= bStart && d < bEnd;
                         });
+                        const cellBlocks = roomBlocks.filter((b) => d >= b.start_date && d <= b.end_date);
+                        const canBlock = cellBookings.length === 0 && cellBlocks.length === 0 && d >= today;
 
                         return (
                           <td
                             key={d}
+                            onClick={canBlock ? () => setBlocking({ roomId: room.room_id, date: d }) : undefined}
+                            title={canBlock ? `Block ${room.room_number} from this night` : undefined}
                             className={`
                               relative border-b border-r border-gray-100 h-12 w-[52px] min-w-[52px] p-0
                               ${isToday ? 'bg-yellow-50/40' : 'bg-white group-hover:bg-gray-50/50'}
+                              ${canBlock ? 'cursor-pointer hover:!bg-gray-100' : ''}
                             `}
                           >
+                            {cellBlocks.map((b) => {
+                              const isFirst = d === b.start_date;
+                              const isLast  = d === b.end_date;
+                              let pos: BarPos = 'mid';
+                              if (isFirst && isLast) pos = 'single';
+                              else if (isFirst)      pos = 'start';
+                              else if (isLast)       pos = 'end';
+                              return (
+                                <BlockBar
+                                  key={b.block_id}
+                                  block={b}
+                                  position={pos}
+                                  onClick={() => setSelectedBlock(b)}
+                                />
+                              );
+                            })}
                             {cellBookings.map((b) => {
                               const bStart = toDateInput(b.check_in_date);
                               const bEnd   = toDateInput(b.check_out_date);
@@ -1001,6 +1100,30 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
       {/* Booking detail modal */}
       {selected && (
         <BookingModal booking={selected} onClose={() => setSelected(null)} />
+      )}
+
+      {blocking && (
+        <BlockRoomsModal
+          rooms={rooms}
+          initialRoomId={blocking.roomId}
+          initialDate={blocking.date}
+          onClose={() => setBlocking(null)}
+          onCreated={(created) => {
+            setBlocks((current) => [...current, ...created]);
+            setBlocking(null);
+          }}
+        />
+      )}
+
+      {selectedBlock && (
+        <BlockDetailModal
+          block={selectedBlock}
+          onClose={() => setSelectedBlock(null)}
+          onRemoved={(blockId) => {
+            setBlocks((current) => current.filter((b) => b.block_id !== blockId));
+            setSelectedBlock(null);
+          }}
+        />
       )}
     </motion.div>
   );

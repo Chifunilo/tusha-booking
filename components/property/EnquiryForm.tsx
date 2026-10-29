@@ -4,11 +4,7 @@ import React, { useEffect, useState } from "react";
 import { API_URL } from "@/lib/api";
 import { useAuth } from "@/app/context/AuthContext";
 import { EVENT_TYPES, EventSpace } from "@/lib/venues";
-
-function localToday(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+import { localToday } from "@/lib/roomBlocks";
 
 const inputClass =
   "w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2.5 focus:border-yellow-500 focus:outline-none";
