@@ -1,52 +1,14 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { API_URL } from '@/lib/api';
+import { Field, inputClass, Modal } from '@/components/business/FormModal';
 import { blockReasonLabel, formatNight, localToday, ROOM_BLOCK_REASONS, RoomBlock, RoomBlockReason } from '@/lib/roomBlocks';
 
 export interface BlockableRoom {
   room_id: number;
   room_number: string;
   property_name: string;
-}
-
-const inputClass =
-  'w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2.5 focus:border-yellow-500 focus:outline-none';
-
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-semibold text-gray-800">{label}</span>
-      {children}
-      {error && <span className="mt-1 block text-sm text-red-600">{error}</span>}
-    </label>
-  );
-}
-
-function Modal({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [onClose]);
-
-  return (
-    <div role="dialog" aria-modal="true" aria-label={label} className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center sm:p-4" onClick={onClose}>
-      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-6 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <h2 className="text-2xl font-semibold tracking-tight">{label}</h2>
-          <button onClick={onClose} aria-label="Close" className="px-1 text-2xl leading-none text-gray-400 hover:text-gray-700">
-            ×
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
 }
 
 /** Take one or more rooms off sale for a run of nights. */
@@ -218,10 +180,13 @@ export function BlockDetailModal({
   block,
   onClose,
   onRemoved,
+  onRecordBooking,
 }: {
   block: RoomBlock;
   onClose: () => void;
   onRemoved: (blockId: number) => void;
+  /** Turn the block into a real booking; offered unless the room is out for repairs. */
+  onRecordBooking?: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -267,6 +232,10 @@ export function BlockDetailModal({
 
       {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
+      {onRecordBooking && block.reason === 'sold_elsewhere' && (
+        <p className="mt-4 text-sm text-gray-600">Sold by phone or at the desk? Record it as a booking so the guest and the money show up in your records.</p>
+      )}
+
       <div className="mt-6 flex flex-wrap gap-2">
         {confirming ? (
           <>
@@ -278,9 +247,16 @@ export function BlockDetailModal({
             </button>
           </>
         ) : (
-          <button onClick={() => setConfirming(true)} className="rounded-full border border-red-300 px-5 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
-            Remove block
-          </button>
+          <>
+            {onRecordBooking && block.reason !== 'maintenance' && (
+              <button onClick={onRecordBooking} className="rounded-full bg-yellow-400 px-5 py-2 text-sm font-semibold text-black hover:bg-yellow-500">
+                Record as a booking
+              </button>
+            )}
+            <button onClick={() => setConfirming(true)} className="rounded-full border border-red-300 px-5 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
+              Remove block
+            </button>
+          </>
         )}
       </div>
     </Modal>

@@ -7,6 +7,8 @@ import { PropertyCard } from '@/components/business';
 import EnquiriesInbox from '@/components/business/EnquiriesInbox';
 import { BlockDetailModal, BlockRoomsModal, BlockableRoom } from '@/components/business/RoomBlockModals';
 import { blockReasonLabel, localToday, RoomBlock } from '@/lib/roomBlocks';
+import WalkInBookingModal from '@/components/business/WalkInBookingModal';
+import { bookingSourceLabel, formatKwacha, OwnerBooking, paymentMethodLabel } from '@/lib/frontDesk';
 
 import {
   LayoutDashboard,
@@ -626,23 +628,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Booking {
-  booking_id: number;
-  booking_reference: string;
-  room_id: number;
-  room_number: string;
-  check_in_date: string;
-  check_out_date: string;
-  guest_name: string;
-  guest_email: string;
-  guest_phone: string;
-  num_guests: number;
-  total_price: number;
-  payment_method: string;
-  status: string;
-  payment_status: string;
-  special_requests?: string;
-}
+type Booking = OwnerBooking;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -715,16 +701,25 @@ const BookingModal: React.FC<{ booking: Booking; onClose: () => void }> = ({ boo
         <div className="space-y-3 text-sm">
           {[
             { label: 'Reference', value: <span className="font-mono text-xs">{booking.booking_reference}</span> },
+            { label: 'Booked by', value: booking.source === 'tusha' ? 'Tusha' : `${bookingSourceLabel(booking.source)}${booking.created_by_name ? `, recorded by ${booking.created_by_name}` : ''}` },
             { label: 'Room', value: booking.room_number },
             { label: 'Guest', value: booking.guest_name },
-            { label: 'Email', value: <span className="text-xs">{booking.guest_email}</span> },
+            ...(booking.guest_email ? [{ label: 'Email', value: <span className="text-xs">{booking.guest_email}</span> }] : []),
             { label: 'Phone', value: booking.guest_phone },
             { label: 'Check-in', value: formatDateLong(toDateInput(booking.check_in_date)) },
             { label: 'Check-out', value: formatDateLong(toDateInput(booking.check_out_date)) },
             { label: 'Duration', value: `${nights} night${nights > 1 ? 's' : ''}` },
             { label: 'Guests', value: booking.num_guests },
-            { label: 'Total', value: `K${Number(booking.total_price).toFixed(2)}` },
-            { label: 'Payment', value: booking.payment_method },
+            { label: 'Total', value: formatKwacha(Number(booking.total_price)) },
+            ...(booking.list_price != null
+              ? [{ label: 'Agreed', value: `${formatKwacha(Number(booking.base_price))} for the room, standard rate ${formatKwacha(Number(booking.list_price))}` }]
+              : []),
+            {
+              label: 'Payment',
+              value: booking.payment_status === 'paid'
+                ? `Paid${booking.payment_method ? ` · ${paymentMethodLabel(booking.payment_method)}` : ''}`
+                : booking.payment_status === 'pending' ? 'Not paid yet' : booking.payment_status.replace(/_/g, ' '),
+            },
           ].map(({ label, value }) => (
             <div key={label} className="flex gap-2">
               <span className="text-gray-500 w-20 shrink-0">{label}</span>
@@ -776,14 +771,15 @@ const BookingBar: React.FC<{
 
   const showLabel = position === 'single' || position === 'start';
   const firstName = booking.guest_name.split(' ')[0];
+  const own = booking.source !== 'tusha';
 
   return (
     <div
       onClick={onClick}
-      title={booking.guest_name}
+      title={`${booking.guest_name} · ${bookingSourceLabel(booking.source)}`}
       className={`
         absolute top-1.5 bottom-1.5 left-0 right-0
-        bg-yellow-400 hover:bg-yellow-500
+        ${own ? 'bg-sky-300 hover:bg-sky-400' : 'bg-yellow-400 hover:bg-yellow-500'}
         cursor-pointer transition-colors
         flex items-center overflow-hidden
         ${radiusClass} ${paddingClass}
@@ -792,7 +788,7 @@ const BookingBar: React.FC<{
       `}
     >
       {showLabel && (
-        <span className="text-xs font-medium text-yellow-900 truncate">{firstName}</span>
+        <span className={`text-xs font-medium truncate ${own ? 'text-sky-950' : 'text-yellow-900'}`}>{firstName}</span>
       )}
     </div>
   );
@@ -852,6 +848,7 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
   const [blocks,   setBlocks]   = useState<RoomBlock[]>([]);
   const [blocking, setBlocking] = useState<{ roomId?: number; date?: string } | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<RoomBlock | null>(null);
+  const [walkIn, setWalkIn] = useState<{ roomId?: number; date?: string; fromBlock?: RoomBlock } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -922,12 +919,20 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
         <div className="flex items-center gap-4 flex-wrap">
           <h2 className="text-3xl font-semibold tracking-tight text-gray-900">Manage Bookings</h2>
           {rooms.length > 0 && (
-            <button
-              onClick={() => setBlocking({})}
-              className="inline-flex items-center rounded-full bg-black px-4 py-1.5 text-sm font-semibold text-white transition-[background-color,transform] duration-200 ease-out hover:bg-gray-800 active:scale-[0.97]"
-            >
-              Block rooms
-            </button>
+            <>
+              <button
+                onClick={() => setWalkIn({})}
+                className="inline-flex items-center rounded-full bg-black px-4 py-1.5 text-sm font-semibold text-white transition-[background-color,transform] duration-200 ease-out hover:bg-gray-800 active:scale-[0.97]"
+              >
+                New booking
+              </button>
+              <button
+                onClick={() => setBlocking({})}
+                className="inline-flex items-center rounded-full border border-gray-300 px-4 py-1.5 text-sm font-semibold text-gray-800 transition-[background-color,transform] duration-200 ease-out hover:bg-gray-50 active:scale-[0.97]"
+              >
+                Block rooms
+              </button>
+            </>
           )}
         </div>
 
@@ -964,9 +969,10 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
 
       {rooms.length > 0 && (
         <motion.div variants={fadeInVariants} className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-gray-500">
-          <span className="inline-flex items-center gap-1.5"><span className="h-3 w-6 rounded-full bg-yellow-400" />Booking</span>
+          <span className="inline-flex items-center gap-1.5"><span className="h-3 w-6 rounded-full bg-yellow-400" />Tusha booking</span>
+          <span className="inline-flex items-center gap-1.5"><span className="h-3 w-6 rounded-full bg-sky-300" />Your booking (walk-in, phone…)</span>
           <span className="inline-flex items-center gap-1.5"><span className={`h-3 w-6 rounded-full ${blockStripes}`} />Blocked</span>
-          <span>Click an empty night to block it.</span>
+          <span>Click an empty night to add a booking.</span>
         </motion.div>
       )}
 
@@ -1038,17 +1044,17 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
                           return d >= bStart && d < bEnd;
                         });
                         const cellBlocks = roomBlocks.filter((b) => d >= b.start_date && d <= b.end_date);
-                        const canBlock = cellBookings.length === 0 && cellBlocks.length === 0 && d >= today;
+                        const isFree = cellBookings.length === 0 && cellBlocks.length === 0 && d >= today;
 
                         return (
                           <td
                             key={d}
-                            onClick={canBlock ? () => setBlocking({ roomId: room.room_id, date: d }) : undefined}
-                            title={canBlock ? `Block ${room.room_number} from this night` : undefined}
+                            onClick={isFree ? () => setWalkIn({ roomId: room.room_id, date: d }) : undefined}
+                            title={isFree ? `New booking for ${room.room_number} from this night` : undefined}
                             className={`
                               relative border-b border-r border-gray-100 h-12 w-[52px] min-w-[52px] p-0
                               ${isToday ? 'bg-yellow-50/40' : 'bg-white group-hover:bg-gray-50/50'}
-                              ${canBlock ? 'cursor-pointer hover:!bg-gray-100' : ''}
+                              ${isFree ? 'cursor-pointer hover:!bg-gray-100' : ''}
                             `}
                           >
                             {cellBlocks.map((b) => {
@@ -1122,6 +1128,28 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
           onRemoved={(blockId) => {
             setBlocks((current) => current.filter((b) => b.block_id !== blockId));
             setSelectedBlock(null);
+          }}
+          onRecordBooking={() => {
+            setWalkIn({ fromBlock: selectedBlock });
+            setSelectedBlock(null);
+          }}
+        />
+      )}
+
+      {walkIn && (
+        <WalkInBookingModal
+          initialRoomId={walkIn.roomId}
+          initialDate={walkIn.date}
+          fromBlock={walkIn.fromBlock}
+          onClose={() => setWalkIn(null)}
+          onCreated={(booking, removedBlockId) => {
+            setBookings((current) => [...current, booking]);
+            if (removedBlockId) setBlocks((current) => current.filter((b) => b.block_id !== removedBlockId));
+            setWalkIn(null);
+          }}
+          onBlockInstead={(roomId, date) => {
+            setWalkIn(null);
+            setBlocking({ roomId, date });
           }}
         />
       )}
