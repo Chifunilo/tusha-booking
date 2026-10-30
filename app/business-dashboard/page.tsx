@@ -2,6 +2,7 @@
 
 import { AddIcon, BedIcon, BuildingIcon } from '@/components/icons';
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import VerificationBanner from '@/components/business/VerificationBanner';
 import { PropertyCard } from '@/components/business';
 import EnquiriesInbox from '@/components/business/EnquiriesInbox';
@@ -677,7 +678,8 @@ const BookingModal: React.FC<{ booking: Booking; onClose: () => void }> = ({ boo
       ? 'bg-yellow-100 text-yellow-800'
       : 'bg-red-100 text-red-800';
 
-  return (
+  // Portalled: the calendar's animated container would otherwise trap `fixed` inside itself.
+  return createPortal(
     <div
       className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
       onClick={onClose}
@@ -742,7 +744,8 @@ const BookingModal: React.FC<{ booking: Booking; onClose: () => void }> = ({ boo
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
@@ -750,11 +753,28 @@ const BookingModal: React.FC<{ booking: Booking; onClose: () => void }> = ({ boo
 
 type BarPos = 'single' | 'start' | 'mid' | 'end';
 
+const CELL_PX = 52;
+
+/**
+ * A bar's label, drawn once (on its first visible night) and allowed to run across
+ * all `cells` nights the bar covers, above the later cells' bar segments.
+ */
+const BarLabel: React.FC<{ cells: number; className: string; children: React.ReactNode }> = ({ cells, className, children }) => (
+  <span
+    className={`pointer-events-none absolute left-3 z-[1] truncate text-xs font-medium ${className}`}
+    style={{ maxWidth: cells * CELL_PX - 24 }}
+  >
+    {children}
+  </span>
+);
+
 const BookingBar: React.FC<{
   booking: Booking;
   position: BarPos;
+  /** Set on the bar's first visible night: how many visible nights the label may span. */
+  labelCells?: number;
   onClick: () => void;
-}> = ({ booking, position, onClick }) => {
+}> = ({ booking, position, labelCells, onClick }) => {
   const radiusClass = {
     single: 'rounded-full',
     start:  'rounded-l-full rounded-r',
@@ -769,8 +789,6 @@ const BookingBar: React.FC<{
     end:    'pl-1 pr-3',
   }[position];
 
-  const showLabel = position === 'single' || position === 'start';
-  const firstName = booking.guest_name.split(' ')[0];
   const own = booking.source !== 'tusha';
 
   return (
@@ -778,17 +796,17 @@ const BookingBar: React.FC<{
       onClick={onClick}
       title={`${booking.guest_name} · ${bookingSourceLabel(booking.source)}`}
       className={`
-        absolute top-1.5 bottom-1.5 left-0 right-0
+        absolute top-1.5 bottom-1.5
         ${own ? 'bg-sky-300 hover:bg-sky-400' : 'bg-yellow-400 hover:bg-yellow-500'}
         cursor-pointer transition-colors
-        flex items-center overflow-hidden
+        flex items-center
         ${radiusClass} ${paddingClass}
         ${position === 'start' || position === 'single' ? 'left-1' : 'left-0'}
-        ${position === 'end'   || position === 'single' ? 'right-1' : 'right-0'}
+        ${position === 'end'   || position === 'single' ? 'right-1' : '-right-px'}
       `}
     >
-      {showLabel && (
-        <span className={`text-xs font-medium truncate ${own ? 'text-sky-950' : 'text-yellow-900'}`}>{firstName}</span>
+      {labelCells !== undefined && (
+        <BarLabel cells={labelCells} className={own ? 'text-sky-950' : 'text-yellow-900'}>{booking.guest_name}</BarLabel>
       )}
     </div>
   );
@@ -801,8 +819,9 @@ const blockStripes = 'bg-[repeating-linear-gradient(135deg,#e5e7eb_0,#e5e7eb_6px
 const BlockBar: React.FC<{
   block: RoomBlock;
   position: BarPos;
+  labelCells?: number;
   onClick: () => void;
-}> = ({ block, position, onClick }) => {
+}> = ({ block, position, labelCells, onClick }) => {
   const radiusClass = {
     single: 'rounded-full',
     start:  'rounded-l-full rounded-r',
@@ -810,24 +829,23 @@ const BlockBar: React.FC<{
     end:    'rounded-r-full rounded-l',
   }[position];
 
-  const showLabel = position === 'single' || position === 'start';
-
   return (
     <div
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       title={`${blockReasonLabel(block.reason)}${block.note ? `: ${block.note}` : ''}`}
       className={`
         absolute top-1.5 bottom-1.5 ${blockStripes} hover:brightness-95
-        cursor-pointer flex items-center overflow-hidden px-2
+        cursor-pointer flex items-center px-2
         ${radiusClass}
         ${position === 'start' || position === 'single' ? 'left-1' : 'left-0'}
-        ${position === 'end'   || position === 'single' ? 'right-1' : 'right-0'}
+        ${position === 'end'   || position === 'single' ? 'right-1' : '-right-px'}
       `}
     >
-      {showLabel && (
-        <span className="text-xs font-medium text-gray-700 truncate">
+      {labelCells !== undefined && (
+        <BarLabel cells={labelCells} className="text-gray-700">
           {block.reason === 'maintenance' ? 'Repairs' : 'Blocked'}
-        </span>
+          {block.note && <span className="font-normal"> · {block.note}</span>}
+        </BarLabel>
       )}
     </div>
   );
@@ -1069,6 +1087,7 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
                                   key={b.block_id}
                                   block={b}
                                   position={pos}
+                                  labelCells={isFirst || d === days[0] ? days.filter((x) => x >= d && x <= b.end_date).length : undefined}
                                   onClick={() => setSelectedBlock(b)}
                                 />
                               );
@@ -1087,6 +1106,7 @@ const BookingsContent: React.FC<{ userId: number }> = ({ userId }) => {
                                   key={b.booking_id}
                                   booking={b}
                                   position={pos}
+                                  labelCells={isFirst || d === days[0] ? days.filter((x) => x >= d && x < bEnd).length : undefined}
                                   onClick={() => setSelected(b)}
                                 />
                               );

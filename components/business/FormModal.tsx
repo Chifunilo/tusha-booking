@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 export const inputClass =
   'w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2.5 focus:border-yellow-500 focus:outline-none';
@@ -15,7 +16,11 @@ export function Field({ label, error, children }: { label: string; error?: strin
   );
 }
 
-/** A bottom sheet on phones, a centred dialog on wider screens. Esc and the backdrop close it. */
+/**
+ * A bottom sheet on phones, a centred dialog on wider screens. Esc and the backdrop close it.
+ * Rendered into document.body: an animated (transformed) ancestor would otherwise trap
+ * `position: fixed` inside itself, and the backdrop would cover only that ancestor.
+ */
 export function Modal({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -27,7 +32,7 @@ export function Modal({ label, onClose, children }: { label: string; onClose: ()
     };
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div role="dialog" aria-modal="true" aria-label={label} className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center sm:p-4" onClick={onClose}>
       <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-6 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-5 flex items-start justify-between gap-4">
@@ -38,6 +43,7 @@ export function Modal({ label, onClose, children }: { label: string; onClose: ()
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

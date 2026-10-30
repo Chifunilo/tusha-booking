@@ -14,9 +14,6 @@ interface PaymentCardFieldsProps {
 }
 
 export default function PaymentCardFields({
-  cardNumber,
-  expirationDate,
-  cvc,
   onCardNumberChange,
   onExpirationDateChange,
   onCvcChange,
@@ -37,7 +34,6 @@ export default function PaymentCardFields({
             {...getCardNumberProps({
               onChange: (e: React.ChangeEvent<HTMLInputElement>) => onCardNumberChange(e.target.value),
             })}
-            value={cardNumber}
             className={`w-full px-6 py-4 pr-14 border-2 rounded-xl text-lg focus:outline-none ${
               showError('cardNumber') ? 'border-red-400 focus:border-red-400' : 'border-gray-300 focus:border-yellow-400'
             }`}
@@ -64,7 +60,6 @@ export default function PaymentCardFields({
               {...getExpiryDateProps({
                 onChange: (e: React.ChangeEvent<HTMLInputElement>) => onExpirationDateChange(e.target.value),
               })}
-              value={expirationDate}
               className={`w-full px-6 py-4 pr-12 border-2 rounded-xl text-lg focus:outline-none ${
                 showError('expiryDate') ? 'border-red-400 focus:border-red-400' : 'border-gray-300 focus:border-yellow-400'
               }`}
@@ -82,7 +77,6 @@ export default function PaymentCardFields({
               {...getCVCProps({
                 onChange: (e: React.ChangeEvent<HTMLInputElement>) => onCvcChange(e.target.value),
               })}
-              value={cvc}
               className={`w-full px-6 py-4 pr-12 border-2 rounded-xl text-lg focus:outline-none ${
                 showError('cvc') ? 'border-red-400 focus:border-red-400' : 'border-gray-300 focus:border-yellow-400'
               }`}

@@ -21,7 +21,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick }) => {
   const location = [property.area, property.city].filter(Boolean).join(', ') || property.country;
 
   return (
-    <div onClick={onClick} className="group cursor-pointer h-full flex flex-col overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-black/5">
+    <div onClick={onClick} className="group cursor-pointer h-full flex flex-col overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden">
         <img
@@ -37,20 +37,20 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick }) => {
       </div>
 
       {/* Details */}
-      <div className="flex flex-1 flex-col p-5">
-        <h3 className="text-xl font-bold text-gray-900">{property.property_name}</h3>
+      <div className="flex flex-1 flex-col p-4">
+        <h3 className="text-md font-bold text-gray-900">{property.property_name}</h3>
 
-        <p className="mt-2 min-h-[4.3rem] text-sm text-gray-700 leading-relaxed line-clamp-3">
+        <p className="mt-2 min-h-[4.0rem] text-sm text-gray-700 leading-relaxed line-clamp-3">
           {property.description}
         </p>
 
         <div className="mt-5">
-          <StarRating rating={property.avg_rating} size={24} />
+          <StarRating rating={property.avg_rating} size={16} />
         </div>
 
         <div className="mt-auto flex items-end justify-between gap-3 pt-4">
-          <p className="text-sm font-semibold text-gray-600 whitespace-nowrap">{location}</p>
-          <p className="text-2xl font-semibold text-gray-900 whitespace-nowrap">K{property.min_price || '0'}</p>
+          <p className="text-sm font-medium text-gray-600 whitespace-nowrap">{location}</p>
+          <p className="text-xl font-bold text-gray-900 whitespace-nowrap">K{property.min_price || '0'}</p>
         </div>
       </div>
     </div>

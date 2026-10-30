@@ -45,7 +45,7 @@ export default function PaymentPage() {
       alert('Please enter a valid 16-digit card number');
       return false;
     }
-    if (paymentDetails.expirationDate.length !== 5) {
+    if (paymentDetails.expirationDate.replace(/\D/g, '').length !== 4) {
       alert('Please enter expiration date (MM/YY)');
       return false;
     }
