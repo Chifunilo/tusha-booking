@@ -116,7 +116,8 @@ export default function BookingPage() {
       phone: bookingDetails.phone,
     });
 
-    router.push(`/payment?${params.toString()}`);
+    // Mobile money deposit checkout; it links to the card form for guests paying by card.
+    router.push(`/checkout?${params.toString()}`);
   };
 
   return (
