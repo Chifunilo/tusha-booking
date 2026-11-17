@@ -9,7 +9,15 @@ import EnquiriesInbox from '@/components/business/EnquiriesInbox';
 import { BlockDetailModal, BlockRoomsModal, BlockableRoom } from '@/components/business/RoomBlockModals';
 import { blockReasonLabel, localToday, RoomBlock } from '@/lib/roomBlocks';
 import WalkInBookingModal from '@/components/business/WalkInBookingModal';
-import { bookingSourceLabel, formatKwacha, OwnerBooking, paymentMethodLabel } from '@/lib/frontDesk';
+import TodayBoard from '@/components/business/TodayBoard';
+import {
+  bookingSourceLabel,
+  bookingStatusClass,
+  bookingStatusLabel,
+  formatKwacha,
+  OwnerBooking,
+  paymentMethodLabel,
+} from '@/lib/frontDesk';
 
 import {
   LayoutDashboard,
@@ -25,6 +33,7 @@ import {
   PanelLeftOpen,
   Search,
   ChevronDown,
+  ConciergeBell,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { API_URL } from '@/lib/api';
@@ -47,7 +56,7 @@ const staggerContainerVariants: Variants = {
   },
 };
 
-type MenuItem = 'dashboard' | 'bookings' | 'manage-rooms' | 'events-center' | 'calendar' | 'customers' | 'reports' | 'settings';
+type MenuItem = 'dashboard' | 'front-desk' | 'bookings' | 'manage-rooms' | 'events-center' | 'calendar' | 'customers' | 'reports' | 'settings';
 
 interface MenuItemConfig {
   id: MenuItem;
@@ -77,6 +86,7 @@ const menuGroups: MenuGroup[] = [
   {
     label: 'Operations',
     items: [
+      { id: 'front-desk', label: 'Front desk', icon: <ConciergeBell size={20} /> },
       { id: 'bookings', label: 'Bookings', icon: <Calendar size={20} /> },
       { id: 'manage-rooms', label: 'Manage Rooms', icon: <Bed size={20} /> },
       { id: 'events-center', label: 'Venue enquiries', icon: <Tent size={20} /> },
@@ -175,7 +185,7 @@ export default function BusinessDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-white p-8">
+    <div className="min-h-screen bg-white p-4 sm:p-6 lg:p-8">
       <div className="flex gap-8 max-w-[1600px] mx-auto">
 
         {/* Sidebar */}
@@ -183,7 +193,7 @@ export default function BusinessDashboard() {
           initial={{ opacity: 0, x: -16, filter: 'blur(6px)' }}
           animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
           transition={{ type: 'spring', duration: 0.65, bounce: 0 }}
-          className={`${isSidebarCollapsed ? 'w-24' : 'w-80'} shrink-0 bg-white rounded-3xl shadow-xl shadow-black/10 ring-1 ring-black/5 p-4 flex flex-col h-fit sticky top-20 transition-[width] duration-300 ease-out`}
+          className={`${isSidebarCollapsed ? 'w-24' : 'w-80'} shrink-0 bg-white rounded-3xl shadow-xl shadow-black/10 ring-1 ring-black/5 p-4 hidden lg:flex flex-col h-fit sticky top-20 transition-[width] duration-300 ease-out`}
         >
           {/* Brand + collapse toggle */}
           <div className={`flex items-center py-3 px-2 ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
@@ -294,12 +304,31 @@ export default function BusinessDashboard() {
 
         {/* Main Content */}
         <main className="flex-1 min-w-0">
+          {/* Phones and tablets: the sidebar's sections as a scrolling row */}
+          <nav aria-label="Dashboard sections" className="lg:hidden -mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {allMenuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveMenu(item.id)}
+                aria-current={activeMenu === item.id ? 'page' : undefined}
+                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${
+                  activeMenu === item.id ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+            <button onClick={handleLogout} className="shrink-0 rounded-full px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+              Log out
+            </button>
+          </nav>
+
           {/* Topbar */}
           <motion.div
             initial={{ opacity: 0, y: -10, filter: 'blur(6px)' }}
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
             transition={{ type: 'spring', duration: 0.65, bounce: 0, delay: 0.08 }}
-            className="flex justify-between items-center mb-8"
+            className="flex justify-between items-center mb-6 lg:mb-8"
           >
             <div>
               <div className="flex items-center gap-2.5 text-gray-400">
@@ -312,7 +341,7 @@ export default function BusinessDashboard() {
                   Live
                 </span>
               </div>
-              <h1 className="mt-1 text-4xl font-semibold tracking-tight text-gray-900">
+              <h1 className="mt-1 text-3xl lg:text-4xl font-semibold tracking-tight text-gray-900">
                 {currentPage.label}
               </h1>
               <p className="mt-1 text-sm text-gray-500">
@@ -329,6 +358,7 @@ export default function BusinessDashboard() {
             variants={fadeInVariants}
           >
             {activeMenu === 'dashboard' && <DashboardContent userId={user.user_id} />}
+            {activeMenu === 'front-desk' && <TodayBoard />}
             {activeMenu === 'bookings' && <BookingsContent userId={user.user_id} />}
             {activeMenu === 'manage-rooms' && <ManageRoomsContent userId={user.user_id} />}
             {activeMenu === 'events-center' && <EnquiriesInbox />}
@@ -671,13 +701,6 @@ const BookingModal: React.FC<{ booking: Booking; onClose: () => void }> = ({ boo
     toDateInput(booking.check_out_date)
   ).length;
 
-  const statusColors =
-    booking.status === 'confirmed'
-      ? 'bg-green-100 text-green-800'
-      : booking.status === 'pending'
-      ? 'bg-yellow-100 text-yellow-800'
-      : 'bg-red-100 text-red-800';
-
   // Portalled: the calendar's animated container would otherwise trap `fixed` inside itself.
   return createPortal(
     <div
@@ -731,8 +754,8 @@ const BookingModal: React.FC<{ booking: Booking; onClose: () => void }> = ({ boo
 
           <div className="flex gap-2 items-center">
             <span className="text-gray-500 w-20 shrink-0">Status</span>
-            <span className={`px-3 py-0.5 rounded-full text-xs font-medium ${statusColors}`}>
-              {booking.status}
+            <span className={`px-3 py-0.5 rounded-full text-xs font-medium ${bookingStatusClass(booking.status)}`}>
+              {bookingStatusLabel(booking.status)}
             </span>
           </div>
 

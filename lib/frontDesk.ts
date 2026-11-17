@@ -77,4 +77,61 @@ export interface OwnerBooking {
   source: BookingSource;
   created_by_name: string | null;
   special_requests?: string | null;
+  /** What the guest still owes the property. */
+  balance_due: number;
+  checked_in_at: string | null;
+  checked_out_at: string | null;
+}
+
+// ─── Stays (backend PHASEDLODGE.md step 3) ────────────────────────────────────
+
+export const BOOKING_STATUS_LABELS: Record<string, string> = {
+  pending: 'Awaiting deposit',
+  confirmed: 'Confirmed',
+  checked_in: 'In house',
+  completed: 'Checked out',
+  cancelled: 'Cancelled',
+  no_show: 'No-show',
+};
+
+export const bookingStatusLabel = (status: string) => BOOKING_STATUS_LABELS[status] ?? status;
+
+export const bookingStatusClass = (status: string) =>
+  ({
+    pending: 'bg-yellow-100 text-yellow-800',
+    confirmed: 'bg-green-100 text-green-800',
+    checked_in: 'bg-sky-100 text-sky-800',
+    completed: 'bg-gray-100 text-gray-700',
+  })[status] ?? 'bg-red-100 text-red-800';
+
+// Keys must match HOUSEKEEPING_STATUSES in the backend's src/lib/validation/frontDesk.ts.
+export const HOUSEKEEPING = [
+  { value: 'dirty', label: 'Dirty' },
+  { value: 'clean', label: 'Clean' },
+  { value: 'inspected', label: 'Inspected' },
+] as const;
+
+export type HousekeepingStatus = (typeof HOUSEKEEPING)[number]['value'];
+
+/** A room on the Today board (GET /api/frontdesk/today). */
+export interface TodayRoom {
+  room_id: number;
+  room_number: string;
+  property_id: number;
+  property_name: string;
+  room_type: string;
+  housekeeping_status: HousekeepingStatus;
+  /** The guest checked in to it, if any. */
+  occupied_by: string | null;
+}
+
+export interface TodayView {
+  /** The lodge's today (Zambia), YYYY-MM-DD. */
+  date: string | null;
+  /** Confirmed and due: today, or late (check-in already passed). */
+  arrivals: OwnerBooking[];
+  inHouse: OwnerBooking[];
+  /** In house and due out today, or overdue. */
+  departures: OwnerBooking[];
+  rooms: TodayRoom[];
 }
